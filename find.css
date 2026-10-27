@@ -1,0 +1,54 @@
+#findArchive, #findStatus { display: none; }
+.is-find #findArchive { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; align-content: start; position: absolute; left: 5.5%; top: 15%; width: 23%; height: 70%; overflow-y: auto; pointer-events: auto; padding: 4px; }
+.find-card { aspect-ratio: .84; border: 1px solid transparent; border-radius: 4px; padding: 16px 12px; display: flex; align-items: flex-end; background: #d2d2d2; color: #555; cursor: pointer; text-align: left; font: 11px/1.4 var(--memo-sans); transition: transform .2s,background .2s; }
+.find-card:nth-child(4n+2), .find-card:nth-child(4n+3) { background: #8f8f8f; color: #fff; }
+@media (hover: hover) { .find-card:hover { background: #eee; color: #121212; transform: translateY(-3px); } }
+.find-card:focus-visible, .find-card[aria-pressed=true] { outline: 1px solid #fff; outline-offset: 2px; }
+.is-find .writing-column { left: auto; right: 7%; top: 21%; width: 27%; height: 60%; }
+.is-find .writing-prompt { margin-bottom: 22px; }
+.is-find .writing-date-area { padding: 18px 24px; }
+.is-find .writing-paper { padding: 8px 24px 22px; }
+.is-find #findStatus { display: block; position: absolute; left: 5.5%; top: 87%; width: 23%; margin: 0; color: #bcbcbc; text-align: center; font: 12px/1.5 var(--memo-sans); }
+.find-empty { color: #bcbcbc; grid-column: 1 / -1; font: 12pt/1.5 var(--memo-sans); }
+.find-flyer { position: fixed; z-index: 20; pointer-events: none; transform-origin: top left; transform-style: preserve-3d; }
+.find-flyer-front, .find-flyer-back { position: absolute; inset: 0; border-radius: 4px; backface-visibility: hidden; padding: 16px; overflow: hidden; font: 12px/1.5 var(--memo-sans); }
+.find-flyer-back { background: #bcbcbc; color: #121212; display: flex; align-items: flex-end; }
+.find-flyer-front { background: #f7f7f7; color: #121212; transform: rotateY(180deg); white-space: pre-wrap; }
+@media(max-width:700px) {
+ .is-find #writingView { position: absolute; height: 1300px; }
+ body.is-find { overflow-y: auto; }
+ .is-find #findArchive { left: 7%; top: 180px; width: 86%; height: 320px; grid-template-columns: repeat(3,minmax(0,1fr)); }
+ .is-find #findStatus { left: 7%; top: 520px; width: 86%; }
+ .is-find .writing-column { left: 7%; right: auto; top: 600px; width: 86%; height: 570px; }
+ .is-find .writing-close { position: fixed; }
+}
+
+/* 첫 클릭은 내용 확인, 두 번째 클릭은 작성 영역으로 이동합니다. */
+.find-card { position: relative; padding: 0; background: transparent !important; perspective: 900px; }
+.find-card-inner { position: absolute; inset: 0; display: block; transform-style: preserve-3d; transition: transform .5s cubic-bezier(.25,.1,.25,1); }
+.find-card.is-revealed .find-card-inner { transform: rotateY(180deg); }
+.find-card-date, .find-card-content { position: absolute; inset: 0; border-radius: 4px; padding: 16px 12px; backface-visibility: hidden; }
+.find-card-date { display: flex; align-items: flex-end; background: #d2d2d2; color: #555; }
+.find-card:nth-child(4n+2) .find-card-date, .find-card:nth-child(4n+3) .find-card-date { background: #8f8f8f; color: #fff; }
+.find-card-content { transform: rotateY(180deg); background: #f7f7f7; color: #121212; white-space: pre-wrap; overflow: auto; font: 12px/1.5 var(--memo-sans); }
+/* 작성 카드의 폭과 높이, 안쪽 여백을 W 기록하기와 일치시킵니다. */
+.is-find .writing-column { top: 15%; right: 7%; width: min(400px,36vw); height: 73%; }
+.is-find .writing-prompt { margin-bottom: 26px; }
+.is-find .writing-date-area { padding: 24px 32px 20px; }
+.is-find .writing-paper { padding: 12px 32px 26px; }
+/* 사용자 지시문은 명조체 + 0.5px 스트로크로 통일합니다. */
+.writing-prompt, .save-hint, .is-find #findStatus, .find-empty, #rememberHint, .memory-empty p, .writing-input::placeholder {
+ font-family: var(--memo-serif); font-weight: 400; -webkit-text-stroke: .5px currentColor;
+}
+.is-find #findStatus { line-height: 1.5; }
+@media(min-width:601px) and (max-width:1000px) {
+ .is-find .writing-column { width:43%; }
+ .is-find .writing-date-area { padding-left:22px; padding-right:22px; }
+ .is-find .writing-paper { padding-left:22px; padding-right:22px; }
+}
+@media(max-width:700px) {
+ .is-find .writing-column { left:7%; right:auto; top:600px; width:86%; height:570px; }
+ .is-find .writing-date-area { padding:20px 24px 16px; }
+ .is-find .writing-paper { padding:8px 24px 22px; }
+}
+@media(prefers-reduced-motion:reduce) { .find-card-inner { transition:none; } }

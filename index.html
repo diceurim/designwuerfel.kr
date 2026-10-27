@@ -1,1 +1,204 @@
-<h1>Hello</h1>
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- 아이패드 등 AppleMyungjo가 없는 기기에서도 지시문이 명조체로 보이도록 대체 글꼴을 불러옵니다. 맥에서는 AppleMyungjo가 먼저 쓰입니다. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400&display=swap">
+  <title>Dice Memo</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; overflow: hidden; background: #121212; font-family: system-ui, sans-serif; }
+    canvas { display: block; touch-action: none; }
+    :root { --button-size: min(8.1vw, 13vh); }
+    .instruction {
+      position: fixed; z-index: 2; top: 15%; left: 50%;
+      width: min(640px, 68vw); transform: translateX(-50%);
+      text-align: center; color: #fff; pointer-events: none;
+    }
+    /* #121212 배경과 screen 합성 시 기본 버튼 색상은 #6d6d6d입니다. */
+    .instruction[hidden] { display: none; }
+    .instruction p { margin: 0; }
+    .instruction .ko {
+      font-family: "AppleMyungjo", "Batang", "Noto Serif KR", serif;
+      font-size: 14pt; line-height: 16.8pt; font-weight: 400;
+      -webkit-text-stroke: 0.5px currentColor;
+    }
+    .instruction .de {
+      margin-top: 12px; font-family: "Apple SD Gothic Neo", sans-serif;
+      font-size: 12pt; line-height: 14.4pt; font-weight: 400;
+    }
+    /* 안내 문구 속 작은 주사위 면: 화면 구석의 면 버튼과 같은 모양이라 그것이 버튼임을 알려줍니다. 여섯 면이 차례로 바뀝니다. */
+    .inline-face { display: inline-block; width: 1.35em; height: 1.35em; vertical-align: -.24em; border-radius: 50%; }
+    .inline-face img { display: block; width: 100%; height: 100%; filter: grayscale(1) invert(1); }
+    .face-buttons { position: fixed; z-index: 3; display: grid; gap: 3px; mix-blend-mode: screen; }
+    .face-buttons.left { top: 5.8%; left: 3.4%; grid-template-columns: var(--button-size); }
+    .face-buttons.right {
+      right: 4.2%; bottom: 7.1%;
+      grid-template-columns: repeat(2, var(--button-size));
+    }
+    .face-button {
+      width: var(--button-size); height: var(--button-size);
+      padding: 0; border: 0; border-radius: 50%; background: transparent;
+      cursor: pointer; opacity: 0.383966245; transition: opacity 160ms ease;
+    }
+    .face-button img { display: block; width: 100%; height: 100%; filter: grayscale(1) invert(1); }
+    .face-button.is-selected { opacity: 1; }
+    /* 터치 기기에서는 탭한 뒤 hover가 남지 않도록 실제 hover가 있는 기기에서만 적용합니다. */
+    @media (hover: hover) { .face-button:hover { opacity: 1; } }
+    /* 두 번 탭 확대와 탭 지연을 막고, 저장 안내도 누를 수 있게 합니다. */
+    button, .save-hint { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+    .save-hint { cursor: pointer; }
+    /* 클릭 후 스페이스바 입력으로 focus-visible이 되어도 외곽선을 표시하지 않습니다. */
+    .face-button:focus, .face-button:focus-visible { outline: none; }
+    .face-button[data-face="4"] { grid-column: 2; }
+    .face-button[data-face="5"] { grid-column: 1; grid-row: 2; }
+    .face-button[data-face="6"] { grid-column: 2; grid-row: 2; }
+    @media (max-width: 600px) {
+      :root { --button-size: min(13vw, 10vh); }
+      .instruction { top: 20%; width: 90vw; }
+      .instruction .ko { font-size: 12pt; line-height: 14.4pt; }
+      .instruction .de { font-size: 10pt; line-height: 12pt; }
+    }
+    .memo {
+      position: fixed;
+      z-index: 2;
+      margin: 0;
+      padding: 16px;
+      border: 0;
+      border-radius: 2px;
+      background: #fff;
+      color: #222;
+      font: 14px/1.6 system-ui, sans-serif;
+      resize: none;
+      box-shadow: 0 10px 30px #0005;
+    }
+    .memo::placeholder { color: #929292; }
+    .memo:focus { outline: 2px solid #c9c9c9; outline-offset: 3px; }
+    .memo[hidden] { display: none; }
+    .add-note {
+      position: fixed; z-index: 3; bottom: 30px; left: 50%; transform: translateX(-50%);
+      border: 1px solid #ffffff35; border-radius: 999px; padding: 9px 15px;
+      background: #121212; color: #a9afbd; font: 11px system-ui, sans-serif;
+      letter-spacing: .08em; cursor: pointer;
+    }
+    .add-note:hover { color: #fff; border-color: #ffffff75; }
+    .add-note:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+    #noteBoard { position: fixed; inset: 0; pointer-events: none; z-index: 2; }
+    .note-card { position: absolute; background: white; border-radius: 2px; box-shadow: 0 10px 30px #0005; pointer-events: auto; }
+    .note-card textarea { width: 100%; height: 100%; border: 0; padding: 32px 16px 16px; resize: none; background: transparent; color: #222; font: 14px/1.6 system-ui, sans-serif; border-radius: inherit; }
+    .note-card textarea:focus { outline: 2px solid #c9c9c9; outline-offset: 3px; }
+    .note-card textarea::placeholder { color: #929292; }
+    .note-handle { position: absolute; top: 0; left: 0; right: 28px; height: 26px; line-height: 20px; text-align: center; color: #b4b4b4; cursor: grab; touch-action: none; user-select: none; }
+    .note-handle:focus-visible { outline: 2px solid #999; outline-offset: -2px; }
+    .dragging .note-handle { cursor: grabbing; }
+    .dragging { box-shadow: 0 14px 40px #0008; }
+    .note-close { position: absolute; top: 3px; right: 5px; padding: 0 4px; background: transparent; border: 0; color: #888; font-size: 18px; cursor: pointer; }
+    .note-close:hover { color: #222; }
+  </style>
+  <link rel="stylesheet" href="writing.css?v=overlay-11">
+  <script src="paper-curl.js?v=1"></script>
+  <script src="seed-notes.js?v=3"></script>
+  <script src="writing.js?v=dice-4"></script>
+  <script src="p5.min.js"></script>
+  <script src="sketch.js?v=dice-4"></script>
+  <script src="notes.js?v=notes-drag-3"></script>
+  <link rel="stylesheet" href="remember.css?v=5">
+  <script src="remember.js?v=2"></script>
+  <link rel="stylesheet" href="memo-theme.css?v=6">
+  <link rel="stylesheet" href="find.css?v=4">
+  <script src="find.js?v=4"></script>
+<script src="addons/matter.min.js"></script>
+<script src="lolling.js?v=5"></script>
+<link rel="stylesheet" href="lolling.css?v=5">
+<link rel="stylesheet" href="experiment.css?v=14">
+<script src="experiment.js?v=5"></script>
+<link rel="stylesheet" href="ui-style.css?v=7">
+</head>
+<body>
+  <!-- 화면 이름표: 열린 화면에 따라 왼쪽 위 구석에 표시됩니다(시작 화면에서는 숨김). -->
+  <div id="viewLabel" aria-hidden="true"></div>
+  <main></main>
+  <div id="noteBoard"></div>
+  <textarea id="wMemo" class="memo" hidden aria-label="W 메모지"></textarea>
+  <section class="instruction" aria-label="사용 안내">
+    <p class="ko" lang="ko"><span class="inline-face" aria-hidden="true"><img src="assets/face-1.png" alt=""></span> 버튼을 눌러 영감을 기록할 수는 있지만,<br>가능한 <u>스페이스바</u>를 눌러 주사위를 굴려보세요</p>
+    <p class="de" lang="de">Du kannst deine Inspirationen auch per Klick auf den <span class="inline-face" aria-hidden="true"><img src="assets/face-1.png" alt=""></span> Button festhalten.<br>Versuch aber, möglichst <u>die Leertaste</u> zu drücken, um zu würfeln!</p>
+  </section>
+  <nav class="face-buttons left" aria-label="W ü r">
+    <button class="face-button" data-face="1" type="button" aria-label="W"><img src="assets/face-1.png" alt=""></button>
+    <button class="face-button" data-face="2" type="button" aria-label="ü"><img src="assets/face-2.png" alt=""></button>
+    <button class="face-button" data-face="3" type="button" aria-label="r"><img src="assets/face-3.png" alt=""></button>
+  </nav>
+  <nav class="face-buttons right" aria-label="f e l">
+    <button class="face-button" data-face="4" type="button" aria-label="f"><img src="assets/face-4.png" alt=""></button>
+    <button class="face-button" data-face="5" type="button" aria-label="e"><img src="assets/face-5.png" alt=""></button>
+    <button class="face-button" data-face="6" type="button" aria-label="l"><img src="assets/face-6.png" alt=""></button>
+  </nav>
+  <section id="writingView" hidden aria-label="W 기록하기">
+    <section id="findArchive" aria-label="날짜로 고르는 이전 메모"></section>
+    <p id="findStatus" role="status" aria-live="polite"></p>
+    <section class="overlay-source-stack" aria-label="무작위 이전 기록 두 개">
+      <article class="source-note source-note-back">
+        <p class="source-text"></p><h2 class="source-date writing-serif"></h2>
+      </article>
+      <article class="source-note source-note-front">
+        <h2 class="source-date writing-serif"></h2><p class="source-text"></p>
+      </article>
+    </section>
+    <button id="writingClose" class="writing-close" type="button" aria-label="시작화면으로 돌아가기" title="닫기 (Esc)"></button>
+    <div class="writing-column">
+      <p class="writing-prompt writing-serif">지금 당신의 머리 속에는<br>어떤 생각이 떠오르나요?</p>
+      <div class="writing-date-area">
+          <button id="writingDateButton" class="date-button writing-serif" type="button" aria-expanded="false" aria-controls="writingDatePanel"></button>
+          <div id="writingDatePanel" class="date-panel" hidden>
+            <input id="writingDate" type="date" aria-label="기록 날짜 변경">
+          </div>
+      </div>
+      <div class="paper-stack">
+        <article id="writingPaper" class="writing-paper">
+          <textarea id="writingInput" class="writing-input" aria-label="기록 내용" aria-describedby="saveHint" spellcheck="false"></textarea>
+          <p id="saveHint" class="save-hint writing-serif" title="Shift+Enter로 줄바꿈">ENTER로 저장하기</p>
+        </article>
+      </div>
+    </div>
+  </section>
+  <section id="rememberView" hidden aria-label="R 기억하기">
+    <button id="rememberClose" class="writing-close" type="button" aria-label="기억하기 닫기" title="닫기 (Esc)"></button>
+    <div class="remember-center">
+      <div id="rememberDeck" tabindex="0" role="region" aria-label="저장한 기록 카드" aria-describedby="rememberHint"></div>
+      <nav class="memory-nav" aria-label="기록 넘기기">
+        <button id="memoryPrevious" type="button" aria-label="이전 기록">←</button>
+        <span id="rememberStatus" role="status" aria-live="polite"></span>
+        <button id="memoryNext" type="button" aria-label="다음 기록">→</button>
+      </nav>
+      <p id="rememberHint"></p>
+    </div>
+  </section>
+<section id="lollingView" hidden aria-label="L 유희하기">
+
+<div id="lollingField"></div><p id="lollingEmpty" hidden>저장한 메모가 아직 없어요. W 기록하기에서 생각을 남겨주세요.</p>
+<button id="lollingClose" class="writing-close" aria-label="유희하기 닫기" title="닫기 (Esc)"></button></section>
+  <section id="experimentView" hidden aria-label="E 실험하기">
+    <p id="experimentEmpty" hidden>저장한 메모가 아직 없어요. W 기록하기에서 생각을 남겨주세요.</p>
+    <div class="experiment-stage">
+      <div class="experiment-machine">
+        <div id="experimentReels" role="group" aria-label="무작위 기록 세 줄"></div>
+        <button id="experimentLever" class="slot-lever" type="button" aria-label="손잡이를 당겨 다시 돌리기" title="손잡이 당기기 (Space)">
+          <span class="lever-base"></span><span class="lever-arm"><span class="lever-knob"></span></span>
+        </button>
+      </div>
+      <div class="experiment-lower">
+      <p id="experimentStatus" role="status" aria-live="polite"></p>
+      <div class="experiment-paper">
+        <textarea id="experimentInput" aria-label="조합을 보고 떠오른 생각" aria-describedby="experimentSaveHint" placeholder="세 기록을 나란히 두고 떠오른 생각을 적어보세요" spellcheck="false"></textarea>
+        <p id="experimentSaveHint" class="save-hint writing-serif" title="Shift+Enter로 줄바꿈">ENTER로 저장하기</p>
+      </div>
+      </div>
+    </div>
+    <button id="experimentClose" class="writing-close" type="button" aria-label="실험하기 닫기" title="닫기 (Esc)"></button>
+  </section>
+</body>
+</html>

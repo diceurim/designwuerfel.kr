@@ -1,0 +1,118 @@
+body.is-writing .face-buttons, body.is-writing .instruction { display: none; }
+#writingView[hidden] { display: none; }
+#writingView { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
+.writing-close { position: absolute; right: 2%; top: 3%; width: clamp(40px, 4vw, 78px); aspect-ratio: 1; border: 0; padding: 0; background: #6d6d6d; mask: url('assets/buttonX.png') center / contain no-repeat; -webkit-mask: url('assets/buttonX.png') center / contain no-repeat; cursor: pointer; pointer-events: auto; }
+.writing-close:hover, .writing-close:focus-visible { background: #fff; }
+.writing-label { position: absolute; left: 58%; top: 13%; margin: 0; color: #bcbcbc; font: 16px 'Apple SD Gothic Neo', sans-serif; }
+.writing-column { position: absolute; top: 14.8%; right: 7.8%; width: 24.7%; height: 74.2%; display: flex; flex-direction: column; pointer-events: auto; }
+.writing-prompt { color: #fff; text-align: center; margin: 0 0 30px; }
+.writing-serif { font-family: 'AppleMyungjo', 'Batang', 'Noto Serif KR', serif; font-size: 14pt; line-height: 16.8pt; font-weight: 400; -webkit-text-stroke: .5px currentColor; }
+.paper-stack { position: relative; flex: 1; min-height: 0; perspective: 1400px; background: #fff; }
+.writing-paper { position: absolute; inset: 0; background: #fff; display: flex; flex-direction: column; padding: 22px 12% 28px; transform-origin: center top; backface-visibility: hidden; }
+.date-button { border: 0; padding: 0; background: none; color: #121212; cursor: pointer; text-align: left; white-space: nowrap; }
+.date-button::before { content: '▼'; margin-left: -20px; margin-right: 16px; font-size: 14px; }
+.date-panel { background: #fff; padding: 12px 0; }
+.date-panel input { width: 100%; font: 16px 'Apple SD Gothic Neo', sans-serif; }
+.writing-input { flex: 1; min-height: 0; width: 100%; margin-top: 40px; padding: 0; border: 0; outline: none; resize: none; color: #121212; caret-color: #000; background: transparent; font: 14px/1.5 'Apple SD Gothic Neo', sans-serif; }
+.save-hint { margin: 24px 0 0; text-align: center; color: #bcbcbc; font-size: 12pt; line-height: 14.4pt; }
+.paper-copy { pointer-events: none; z-index: 2; white-space: pre-wrap; overflow: visible; backface-visibility: visible; transform-style: preserve-3d; }
+.paper-copy > * { backface-visibility: hidden; }
+/* 뒤집힌 면은 글씨가 비치지 않는 흰 종이로 표시합니다. */
+.paper-copy::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to bottom, #e9e9e9, #fff 24%, #f5f5f5); transform: rotateX(180deg) translateZ(1px); backface-visibility: hidden; }
+.paper-copy .saved-body { flex: 1; margin-top: 40px; overflow: hidden; font: 14px/1.5 'Apple SD Gothic Neo', sans-serif; }
+@media (max-width: 1000px) {
+ .writing-column { right: 6%; width: 36%; }
+ .writing-label { left: 43%; }
+}
+@media (max-width: 600px) {
+ .writing-column { top: 12%; right: 7%; width: 86%; height: 68%; }
+ .writing-label { top: 4%; left: 7%; }
+ .writing-prompt { margin-bottom: 20px; }
+ .writing-paper { padding: 20px 10% 22px; }
+ .writing-input { margin-top: 28px; }
+ .writing-close { top: 3%; right: 6%; }
+}
+@media (max-height: 500px) and (min-width: 601px) {
+ .writing-column { top: 8%; height: 87%; width: 42%; right: 9%; }
+ .writing-prompt { margin-bottom: 12px; }
+ .writing-label { left: 30%; }
+ .writing-input { margin-top: 20px; }
+}
+
+/* 곡면의 각 조각은 앞면 글씨와 흰 뒷면을 독립적으로 표시합니다. */
+.paper-curl { position: absolute; inset: 0; z-index: 3; pointer-events: none; transform-style: preserve-3d; }
+.paper-curl-tile { position: absolute; left: 0; top: 0; transform-origin: 0 0; transform-style: preserve-3d; }
+.paper-curl-front, .paper-curl-back { position: absolute; inset: 0; backface-visibility: hidden; }
+.paper-curl-front { overflow: hidden; background: white; }
+.paper-curl-back { background: #bcbcbc; transform: rotateY(180deg) translateZ(0.1px); }
+.paper-curl-content { margin: 0; transform: none; transform-style: flat; }
+.paper-curl-content::after { display: none; }
+.paper-curl-shade { position: absolute; inset: 0; background: #000; pointer-events: none; }
+
+/* 새 종이에 떨어지는 부드러운 그림자: 휘어진 면과 분리해 격자 무늬를 방지합니다. */
+.paper-cast-shadow { position: absolute; top: 0; left: 0; width: 100%; z-index: 2; pointer-events: none; background: linear-gradient(to bottom, #0002, #000b); transform-origin: center top; }
+.paper-curl { transform-origin: center top; }
+
+/* W 기록하기 전용 흰색 테마 */
+body.is-writing { background: #fff; }
+.writing-prompt { color: #121212; margin-bottom: 0; -webkit-text-stroke: 1px currentColor; }
+.writing-date-area { margin-top: 3.75vh; margin-bottom: 14px; padding: 0 15%; }
+.date-panel { background: #fff; }
+.paper-stack, .writing-paper, .paper-curl-front { background: #121212; }
+.writing-paper { color: #fff; }
+.writing-input { color: #fff; caret-color: #fff; margin-top: 0; }
+.save-hint { color: #bcbcbc; }
+.paper-copy .saved-body { margin-top: 0; }
+.writing-close { background: #bcbcbc; }
+.writing-wordmark { position: absolute; left: 4.2%; top: 8%; width: 48.5%; pointer-events: none; user-select: none; }
+.writing-distort { display: block; width: 100%; height: auto; }
+@media (min-width: 601px) and (max-width: 1000px) {
+  .writing-wordmark { width: 51%; }
+}
+@media (max-width: 600px) {
+  .writing-wordmark { width: 86%; left: 7%; top: 7%; }
+  .writing-column { top: 29%; height: 51%; }
+  .writing-date-area { margin-top: 16px; margin-bottom: 12px; padding: 0 10%; }
+}
+@media (max-height: 500px) and (min-width: 601px) {
+  .writing-wordmark { width: 43%; top: 15%; }
+  .writing-date-area { margin-top: 12px; margin-bottom: 10px; }
+}
+
+/* Ü 중첩하기: 과거 두 기록과 새 기록을 나란히 배치합니다. */
+.overlay-wordmark, .overlay-source-stack { display: none; }
+.is-overlay .writing-wordmark { display: none; }
+.is-overlay .overlay-wordmark { display: block; position: absolute; left: 4.2%; top: 9%; width: 33.5%; }
+.overlay-wordmark img { display: block; width: 100%; height: auto; }
+.is-overlay .overlay-source-stack { display: block; position: absolute; left: 41.4%; top: 12%; width: 23.9%; height: 77%; pointer-events: auto; }
+.source-note { position: absolute; margin: 0; width: 100%; padding: 28px 12%; display: flex; flex-direction: column; }
+.source-date { margin: 0; text-align: center; flex: none; }
+.source-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 14px/1.4 'Apple SD Gothic Neo', sans-serif; overflow-y: auto; min-height: 0; }
+.source-note-back { top: 26.4%; bottom: 0; background: #333; color: white; padding-top: 34%; }
+.source-note-back .source-text { position: absolute; top: calc(36.82% + 18px); bottom: 88px; left: 12%; right: 12%; }
+.source-note-back .source-date { margin-top: auto; }
+.source-note-front { top: 0; height: 53.5%; background: #bcbcbc; color: #121212; padding: 28px 5.5% 20px; }
+.source-note-front .source-text { margin-top: auto; max-height: 56%; border-radius: 24px; padding: 20px 7%; background: #bcbcbc; position: relative; }
+/* 겹친 구간은 어두운 바탕 위에 회색 메모가 얹힌 모양입니다. */
+.source-note-front { background: linear-gradient(to bottom, #bcbcbc 49%, #242424 49%); }
+.source-note-front.is-empty .source-text { color: #333; }
+.is-overlay .writing-prompt { min-height: 44.8px; }
+.is-overlay .writing-column { height: 48%; top: 14%; }
+.is-overlay .writing-date-area { margin-top: 3.5vh; }
+.is-overlay .writing-paper { padding: 24px 7% 22px; }
+@media (min-width: 601px) and (max-width: 1000px) {
+  .is-overlay .overlay-wordmark { left: 3%; width: 28%; }
+  .is-overlay .overlay-source-stack { left: 33%; width: 29%; }
+  .is-overlay .writing-column { right: 3%; width: 32%; height: 62%; }
+  .source-note { padding-left: 8%; padding-right: 8%; }
+  .source-date { font-size: 11pt; line-height: 1.3; }
+}
+@media (max-width: 600px) {
+  body.is-overlay { overflow-y: auto; }
+  .is-overlay #writingView { position: absolute; min-height: 1250px; height: max(100vh,1250px); }
+  .is-overlay .overlay-wordmark { left: 7%; top: 36px; width: 44%; }
+  .is-overlay .overlay-source-stack { left: 7%; top: 270px; width: 86%; height: 420px; }
+  .is-overlay .writing-column { left: 7%; right: auto; top: 740px; width: 86%; height: 460px; }
+  .is-overlay .writing-close { position: fixed; }
+  .source-note-back { padding-top: 30%; }
+}

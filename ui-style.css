@@ -1,0 +1,106 @@
+/* 화면 UI 스타일: 얇은 테두리 + 둥근 모서리, 반투명 회색 세그먼트, 라디오 원, 키캡 배지.
+   배치와 크기는 각 화면의 CSS를 그대로 따르고, 여기서는 표면 스타일만 덮어씁니다.
+   색은 currentColor 기준이라 밝은 종이와 어두운 화면 어디서든 같은 규칙으로 보입니다. */
+:root { --ui-line: color-mix(in srgb, currentColor 34%, transparent); --ui-tint: color-mix(in srgb, currentColor 12%, transparent); }
+
+/* 키캡 배지 */
+.save-hint::after {
+ display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 5px;
+ border-radius: 4px; background: var(--ui-tint); font: 11px/1 var(--memo-sans); letter-spacing: .04em; -webkit-text-stroke: 0;
+}
+
+/* 닫기: 원래 buttonX 이미지를 그대로 쓰고, 크기만 기존의 0.5배로 줄입니다. */
+.writing-close { width: clamp(20px, 2vw, 39px); }
+
+/* 저장 안내: 글자 → 테두리 버튼 + ↵ 키캡 */
+.save-hint {
+ align-self: center; display: inline-flex; align-items: center; gap: 8px; padding: 7px 8px 7px 12px;
+ border: 1px solid var(--ui-line); border-radius: 6px; transition: color .15s, background .15s;
+}
+.save-hint::after { content: '↵'; }
+@media (hover: hover) { .save-hint:hover { background: var(--ui-tint); } }
+
+/* 터치 기기에는 esc·Enter 키가 없으므로 키캡을 숨깁니다. */
+@media (hover: none) { .save-hint::after { display: none; } }
+
+/* 날짜 선택: ▼ → 라디오 원이 있는 회색 세그먼트 */
+.date-button { display: inline-flex; align-items: center; padding: 7px 12px; border-radius: 6px; background: var(--ui-tint); white-space: nowrap; }
+.date-button::before {
+ content: ''; flex: none; width: 11px; height: 11px; margin: 0 9px 0 0; box-sizing: border-box;
+ border: 1.5px solid currentColor; border-radius: 50%; background: radial-gradient(circle, currentColor 0 2.5px, transparent 3px);
+}
+
+/* W·F 작성 카드: 흰 종이는 그대로, 모서리를 8px로 정리하고 그림자·테두리를 없앱니다. */
+.writing-date-area { border: 0; border-radius: 8px 8px 0 0; }
+.paper-stack { border: 0; border-radius: 0 0 8px 8px; box-shadow: none; }
+.writing-paper { border-radius: 0 0 8px 8px; }
+
+/* Ü 중첩하기: 두 기록 묶음과 말풍선 모서리를 8px로 통일합니다. */
+.is-overlay .overlay-source-stack { border-radius: 8px; overflow: hidden; }
+.is-overlay .source-note-front .source-text { border-radius: 8px; }
+
+/* R 회상하기: 흰 카드는 유지하고 모서리·그림자만 정리합니다. */
+.memory-card { border: 0; border-radius: 8px; box-shadow: none; }
+.is-remember .memory-nav {
+ width: max-content; margin: 24px auto 0; gap: 2px; padding: 4px; border-radius: 6px;
+ background: #ffffff26; color: #fff;
+}
+.is-remember .memory-nav button {
+ width: 36px; height: 30px; border: 0; border-radius: 4px; background: transparent; color: #fff; font-size: 16px;
+}
+@media (hover: hover) { .is-remember .memory-nav button:hover:not(:disabled) { background: #ffffff1f; color: #fff; } }
+.is-remember .memory-nav button:disabled { opacity: .3; }
+#rememberStatus {
+ display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: 4px;
+ background: #ffffff26; letter-spacing: .08em; font-variant-numeric: tabular-nums;
+}
+
+/* F 발견하기: 회색 카드 → 반투명 둥근 카드, 고른 카드에 라디오 점 */
+.find-card-date, .find-card-content { border-radius: 6px; }
+.find-card-date { background: #ffffff1f; color: #fff; }
+.find-card:nth-child(4n+2) .find-card-date, .find-card:nth-child(4n+3) .find-card-date { background: transparent; color: #fff; box-shadow: inset 0 0 0 1px #ffffff38; }
+.find-card-date::before {
+ content: ''; position: absolute; top: 12px; left: 12px; width: 11px; height: 11px; box-sizing: border-box;
+ border: 1.5px solid currentColor; border-radius: 50%;
+}
+.find-card[aria-pressed=true] .find-card-date::before, .find-card.is-revealed .find-card-date::before { background: radial-gradient(circle, currentColor 0 2.5px, transparent 3px); }
+/* 이어 쓰는 카드: 흰 테두리 + 오른쪽 아래 체크 배지, 나머지 카드는 한 단계 흐리게 둡니다. */
+.find-card[aria-pressed=true] { outline: 2px solid #fff; outline-offset: 1px; }
+.find-card[aria-pressed=true]::after {
+ content: '✓'; position: absolute; z-index: 2; right: 8px; bottom: 8px; width: 20px; height: 20px; display: grid; place-items: center;
+ border-radius: 50%; background: #121212; color: #fff; font: 700 11px/1 var(--memo-sans);
+}
+#findArchive:has(.find-card[aria-pressed=true]) .find-card:not([aria-pressed=true]) { opacity: .5; transition: opacity .2s; }
+@media (hover: hover) { #findArchive .find-card:hover { opacity: 1 !important; } }
+.find-flyer-front, .find-flyer-back { border-radius: 6px; }
+.find-flyer-back { background: #2a2a2a; color: #fff; }
+
+/* E 실험하기: 작성란 모서리와 테두리를 다른 패널과 맞춥니다. */
+.experiment-paper { border-radius: 8px; box-shadow: inset 0 0 0 1px #ffffff1f; }
+
+/* F 발견하기 카드 목록: 스크롤바 막대는 그대로 두고, 흰 바탕만 반투명으로 바꿉니다. */
+.is-find #findArchive { scrollbar-color: #c1c1c1 #ffffff1f; }
+
+/* 카드에서 작성란으로 옮겨 가는 종이: 위치·크기·여백·글자 크기를 JS에서 함께 옮깁니다. */
+.find-flyer.find-flyer-front { position: fixed; inset: auto; z-index: 20; transform: none; box-sizing: border-box; }
+
+/* 화면 이름표: 왼쪽 위 구석, 닫기 버튼과 같은 높이에 작게 표시합니다. 시작 화면에서는 보이지 않습니다.
+   과제 모음 페이지의 ☰ 목록 탭(폭 28px)과 겹치지 않도록 왼쪽을 44px 이상 띄웁니다. */
+#viewLabel {
+ display: none; position: fixed; z-index: 30; top: 3%; left: max(2%, 44px); height: clamp(20px, 2vw, 39px); align-items: center; gap: 10px;
+ pointer-events: none; color: #8a8a8a; font: 12px/1 var(--memo-sans); letter-spacing: .04em;
+}
+body.is-writing #viewLabel { display: flex; }
+#viewLabel::before { display: grid; place-items: center; min-width: 22px; height: 22px; padding: 0 4px; box-sizing: border-box; border: 1.5px solid currentColor; border-radius: 4px; color: #fff; font-weight: 700; }
+body.is-writing #viewLabel::before { content: 'W'; }
+body.is-writing #viewLabel::after { content: 'Write · 기록하기'; }
+body.is-overlay #viewLabel::before { content: 'Ü'; }
+body.is-overlay #viewLabel::after { content: 'Überlagern · 중첩하기'; }
+body.is-find #viewLabel::before { content: 'F'; }
+body.is-find #viewLabel::after { content: 'Find · 발견하기'; }
+body.is-remember #viewLabel::before { content: 'R'; }
+body.is-remember #viewLabel::after { content: 'Remember · 기억하기'; }
+body.is-experiment #viewLabel::before { content: 'E'; }
+body.is-experiment #viewLabel::after { content: 'Experiment · 실험하기'; }
+body.is-lolling #viewLabel::before { content: 'L'; }
+body.is-lolling #viewLabel::after { content: 'Lolling · 유희하기'; }

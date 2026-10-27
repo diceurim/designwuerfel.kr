@@ -1,0 +1,34 @@
+#rememberView[hidden] { display: none; }
+#rememberView { position: fixed; inset: 0; z-index: 5; pointer-events: none; color: #121212; }
+.remember-center { position: absolute; left: 50%; top: 53%; transform: translate(-50%,-50%); width: min(400px, 70vw); pointer-events: auto; }
+#rememberDeck { position: relative; height: min(480px, 61vh); outline: none; }
+.memory-card { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 32px; background: #f7f7f7; border: 1px solid #ddd; border-radius: 6px; box-shadow: 0 8px 24px #0000000b; transform: translateY(calc(var(--depth, 0) * -23px)) scale(calc(1 - var(--depth, 0) * .055)); transform-origin: center top; transition: transform .25s ease; touch-action: pan-y; cursor: grab; user-select: none; }
+.memory-card:not(:last-child) { background: #e5e5e5; pointer-events: none; }
+.memory-card:not(:last-child) > * { visibility: hidden; }
+.memory-card h2 { margin: 0; padding-bottom: 22px; border-bottom: 1px solid #bcbcbc; font-size: 14pt; }
+.memory-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; white-space: pre-wrap; overflow-wrap: anywhere; margin: 26px 0; font: 16px/1.65 'Apple SD Gothic Neo', sans-serif; }
+.memory-number { font: 12px 'Apple SD Gothic Neo', sans-serif; letter-spacing: .12em; color: #6d6d6d; }
+.memory-card.is-dragging { cursor: grabbing; transition: none; }
+.memory-nav { display: flex; align-items: center; justify-content: center; gap: 24px; margin-top: 24px; font: 13px 'Apple SD Gothic Neo', sans-serif; }
+.memory-nav button { width: 36px; height: 36px; border-radius: 50%; border: 1px solid #bcbcbc; background: transparent; color: #121212; cursor: pointer; font-size: 20px; }
+@media (hover: hover) { .memory-nav button:hover:not(:disabled) { background: #121212; color: white; } }
+.memory-nav button:disabled { opacity: .25; cursor: default; }
+#rememberHint { text-align: center; margin: 12px 0 0; font: 13px 'Apple SD Gothic Neo', sans-serif; color: #6d6d6d; }
+.memory-empty { justify-content: center; cursor: default; }
+.memory-empty p { font: 15px/1.7 'Apple SD Gothic Neo', sans-serif; }
+#rememberDeck:focus-visible .memory-card:last-child { outline: 1px solid #6d6d6d; outline-offset: 4px; }
+@media(max-width:600px) { .remember-center { width: 78vw; top: 49%; } #rememberDeck { height: 53dvh; } .memory-card { padding: 24px; } .memory-card h2 { font-size: 12pt; } .memory-body { font-size: 15px; } }
+@media(prefers-reduced-motion:reduce) { .memory-card { transition: none; } }
+
+/* 기억하기 화면의 어두운 배경과 하단 안내 대비 */
+body.is-remember { background: #121212; }
+.is-remember .memory-nav { color: #bcbcbc; }
+.is-remember .memory-nav button { color: #bcbcbc; }
+@media (hover: hover) { .is-remember .memory-nav button:hover:not(:disabled) { background: #fff; color: #121212; } }
+.is-remember #rememberHint { color: #bcbcbc; }
+
+/* 카드 아래: 번호 + 삭제 버튼 */
+.memory-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.memory-delete { padding: 6px 10px; border: 1px solid #bcbcbc; border-radius: 6px; background: transparent; color: #6d6d6d; font: 12px 'Apple SD Gothic Neo', sans-serif; cursor: pointer; touch-action: manipulation; transition: color .15s, background .15s, border-color .15s; }
+@media (hover: hover) { .memory-delete:hover { border-color: #121212; color: #121212; } }
+.memory-delete.is-confirm { border-color: #121212; background: #121212; color: #fff; }

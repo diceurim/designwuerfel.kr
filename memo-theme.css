@@ -1,0 +1,140 @@
+/* 시작화면의 명조 제목 + 고딕 본문을 세 기록 화면에서 공유합니다. */
+:root { --memo-sans: 'Apple SD Gothic Neo', sans-serif; --memo-serif: 'AppleMyungjo', 'Batang', 'Noto Serif KR', serif; }
+body.is-writing { background: #121212; }
+.writing-serif, .memory-card h2 { font-family: var(--memo-serif); font-size: 14pt; line-height: 16.8pt; font-weight: 400; -webkit-text-stroke: .5px currentColor; }
+.writing-prompt { color: #fff; -webkit-text-stroke: 1px currentColor; margin: 0 0 26px; }
+.writing-input, .paper-copy .saved-body, .source-text, .memory-body, .memory-empty p { font: 12pt/1.5 var(--memo-sans); -webkit-text-stroke: 0; }
+.save-hint, #rememberHint, .memory-nav, .memory-number { font: 12pt/14.4pt var(--memo-sans); -webkit-text-stroke: 0; letter-spacing: 0; }
+.writing-wordmark { left: 7%; top: 21%; width: 34%; }
+.writing-distort, .overlay-wordmark img { filter: invert(1); mix-blend-mode: screen; }
+.writing-column { top: 15%; right: 13%; width: min(400px, 36vw); height: 73%; }
+.writing-date-area { margin: 0; padding: 24px 32px 20px; background: #f7f7f7; border: 1px solid #ddd; border-bottom: 0; border-radius: 6px 6px 0 0; }
+.date-button { color: #121212; white-space: normal; }
+.date-button::before { margin-left: 0; margin-right: 10px; font-size: 11px; }
+.date-panel { background: #f7f7f7; }
+.paper-stack { background: #f7f7f7; border: 1px solid #ddd; border-top: 0; border-radius: 0 0 6px 6px; box-shadow: 0 8px 24px #0000000b; }
+.writing-paper, .paper-curl-front { background: #f7f7f7; color: #121212; }
+.writing-paper, .is-overlay .writing-paper { padding: 12px 32px 26px; border-radius: 0 0 6px 6px; }
+.writing-input { margin: 0; color: #121212; caret-color: #121212; border-top: 1px solid #d5d5d5; padding-top: 22px; }
+.save-hint { color: #6d6d6d; }
+.paper-copy .saved-body { margin: 0; padding-top: 23px; }
+.is-overlay .overlay-wordmark { left: 5%; top: 12%; width: 21%; }
+.is-overlay .overlay-source-stack { left: 31%; top: 22%; width: 28%; height: 63%; }
+.is-overlay .writing-column { top: 15%; right: 6%; width: 29%; height: 70%; }
+.is-overlay .writing-prompt { min-height: 0; }
+.is-overlay .writing-date-area { margin: 0; }
+.source-note { border: 1px solid #d5d5d5; border-radius: 6px; padding: 24px; box-shadow: 0 8px 24px #0000000b; }
+.source-note-front { top: 0; left: -5%; width: 95%; height: 52%; background: #f7f7f7; color: #121212; }
+.source-note-back { top: 43%; bottom: 0; left: 5%; width: 95%; padding: 24px; background: #dedede; color: #121212; }
+.source-date { text-align: left; }
+.source-note-front .source-text { position: static; margin: 20px 0 0; padding: 16px 0 0; border-top: 1px solid #bcbcbc; border-radius: 0; background: transparent; flex: 1; max-height: none; }
+.source-note-back .source-text { position: static; margin: 20px 0 0; padding: 16px 0 0; border-top: 1px solid #bcbcbc; flex: 1; }
+.source-note-back .source-date { order: -1; margin: 0; padding-top: 16px; }
+.memory-body { line-height: 1.5; }
+@media (max-width: 1000px) and (min-width: 601px) {
+ .writing-column { right: 7%; width: 43%; }
+ .writing-wordmark { left: 5%; width: 36%; }
+ .is-overlay .overlay-wordmark { left: 5%; top: 5%; width: 15%; }
+ .is-overlay .overlay-source-stack { left: 8%; top: 29%; width: 36%; height: 59%; }
+ .is-overlay .writing-column { right: 6%; top: 18%; width: 42%; height: 70%; }
+ .writing-date-area, .source-note { padding-left: 22px; padding-right: 22px; }
+ .writing-paper, .is-overlay .writing-paper { padding-left: 22px; padding-right: 22px; }
+}
+@media (max-width: 600px) {
+ .writing-wordmark { top: 5%; left: 7%; width: 53%; }
+ .writing-column { top: 25%; right: 7%; width: 86%; height: 57%; }
+ .writing-prompt { margin-bottom: 18px; }
+ .writing-date-area { padding: 20px 24px 16px; }
+ .writing-paper, .is-overlay .writing-paper { padding: 8px 24px 22px; }
+ body.is-overlay { overflow-y: auto; }
+ .is-overlay #writingView { position: absolute; height: 1330px; min-height: 100vh; }
+ .is-overlay .overlay-wordmark { left: 7%; top: 28px; width: 33%; }
+ .is-overlay .overlay-source-stack { left: 10%; top: 230px; width: 80%; height: 430px; }
+ .is-overlay .writing-column { left: 7%; right: auto; top: 720px; width: 86%; height: 530px; }
+ .source-note { padding: 22px; }
+ .writing-close { position: fixed; z-index: 10; }
+}
+@media (max-height: 500px) and (min-width: 601px) {
+ .writing-column, .is-overlay .writing-column { top: 8%; height: 85%; }
+ .writing-prompt { margin-bottom: 14px; }
+ .writing-date-area { padding-top: 14px; padding-bottom: 12px; }
+}
+
+/* Überlagern의 기존 세로 중첩 메모 형식을 유지합니다. */
+.is-overlay .overlay-source-stack { left: 41.4%; top: 12%; width: 23.9%; height: 77%; }
+.is-overlay .overlay-wordmark { left: 4.2%; top: 9%; width: 33.5%; }
+.is-overlay .source-note { left: 0; width: 100%; border: 0; border-radius: 0; box-shadow: none; display: flex; flex-direction: column; }
+.is-overlay .source-date { text-align: center; }
+.is-overlay .source-note-front { top: 0; height: 53.5%; padding: 28px 5.5% 20px; background: linear-gradient(to bottom, #bcbcbc 49%, #242424 49%); color: #121212; }
+.is-overlay .source-note-front .source-text { position: relative; margin-top: auto; flex: none; max-height: 56%; padding: 20px 7%; border: 0; border-radius: 24px; background: #bcbcbc; }
+.is-overlay .source-note-back { top: 26.4%; bottom: 0; height: auto; padding: 28px 12%; background: #333; color: #fff; }
+.is-overlay .source-note-back .source-text { position: absolute; top: calc(36.82% + 18px); bottom: 88px; left: 12%; right: 12%; margin: 0; padding: 0; border: 0; }
+.is-overlay .source-note-back .source-date { order: 0; margin-top: auto; padding: 0; }
+.is-overlay .writing-column { top: 14%; right: 7.8%; width: 24.7%; height: 48%; }
+.is-overlay .writing-prompt { margin-bottom: 0; min-height: 44.8px; }
+.is-overlay .writing-date-area { margin: 3.5vh 0 14px; padding: 0 15%; border: 0; border-radius: 0; background: transparent; }
+.is-overlay .date-button { color: #fff; }
+.is-overlay .paper-stack { background: #121212; border: 0; border-radius: 0; box-shadow: none; }
+.is-overlay .writing-paper, .is-overlay .paper-curl-front { background: #121212; color: #fff; border-radius: 0; }
+.is-overlay .writing-paper { padding: 24px 7% 22px; }
+.is-overlay .writing-input { color: #fff; caret-color: #fff; border: 0; padding: 0; }
+.is-overlay .save-hint { color: #bcbcbc; }
+@media (min-width: 601px) and (max-width: 1000px) {
+ .is-overlay .overlay-wordmark { left: 3%; width: 28%; }
+ .is-overlay .overlay-source-stack { left: 33%; width: 29%; }
+ .is-overlay .writing-column { right: 3%; width: 32%; height: 62%; }
+}
+@media (max-width: 600px) {
+ .is-overlay #writingView { min-height: 1250px; height: max(100vh,1250px); }
+ .is-overlay .overlay-wordmark { left: 7%; top: 36px; width: 44%; }
+ .is-overlay .overlay-source-stack { left: 7%; top: 270px; width: 86%; height: 420px; }
+ .is-overlay .writing-column { left: 7%; right: auto; top: 740px; width: 86%; height: 460px; }
+}
+
+/* 내용이 길어지면 날짜 아래의 여백을 먼저 사용하고, 한계에서만 스크롤합니다. */
+.is-overlay .source-note-front .source-date { flex: 0 0 auto; margin-bottom: 18px; }
+.is-overlay .source-note-front .source-text {
+ flex: 0 1 auto; min-height: 0; max-height: none; height: auto;
+ margin-top: auto; overflow-y: auto; overflow-x: hidden;
+ overscroll-behavior: contain; overflow-wrap: anywhere;
+}
+/* 아래 기록도 날짜 높이를 실제 글자 크기로 확보해 서로 겹치지 않게 합니다. */
+.is-overlay .source-note-back {
+ display: grid; grid-template-rows: 36.82% minmax(0, 1fr) auto;
+ row-gap: 18px; padding-top: 0;
+}
+.is-overlay .source-note-back .source-text {
+ position: static; grid-row: 2; align-self: start;
+ min-height: 0; max-height: 100%; height: auto;
+ margin: 0; overflow-y: auto; overflow-x: hidden;
+ overscroll-behavior: contain; overflow-wrap: anywhere;
+}
+.is-overlay .source-note-back .source-date { grid-row: 3; margin: 0; }
+.is-overlay .source-text { scrollbar-width: thin; scrollbar-color: #888 transparent; }
+.is-overlay .source-text::-webkit-scrollbar { width: 6px; }
+.is-overlay .source-text::-webkit-scrollbar-track { background: transparent; }
+.is-overlay .source-text::-webkit-scrollbar-thumb { background: #888; border-radius: 6px; }
+
+/* 두 기록이 메모 길이에 따라 늘어나는 하나의 세로 흐름이 됩니다.
+   앞 기록: 회색 날짜 머리 + 말풍선(빈 공간을 먼저 채운 뒤 아래로 늘어남)
+   뒤 기록: 남은 공간을 채우고, 자리가 모자랄 때는 앞 기록의 빈 공간부터 줄인 뒤 스크롤합니다. */
+.is-overlay .overlay-source-stack { display: flex; flex-direction: column; container-type: size; }
+.is-overlay .source-note { position: relative; inset: auto; width: 100%; height: auto; margin: 0; }
+.is-overlay .source-note-front {
+ order: -1; flex: 0 1 53.5cqh; min-height: auto; display: flex; flex-direction: column; row-gap: 18px;
+ padding: 0 5.5% 20px; background: #242424;
+}
+.is-overlay .source-note-front .source-date {
+ flex: none; height: 26.4cqh; margin: 0 -6.2%; padding-top: 28px; background: #bcbcbc;
+}
+.is-overlay .source-note-front .source-text {
+ position: static; flex: 0 1 auto; min-height: 0; margin-top: auto;
+ /* 뒤 기록의 날짜 칸까지 닿으면 그때부터 스크롤합니다. */
+ max-height: calc(73.6cqh - 38px - max(26cqh, 160px));
+}
+.is-overlay .source-note-back {
+ flex: 1 1 auto; min-height: max(26cqh, 160px); display: flex; flex-direction: column; row-gap: 18px;
+ padding: 18px 12% 28px;
+}
+.is-overlay .source-note-back .source-text { position: static; flex: 0 1 auto; min-height: 0; max-height: none; }
+.is-overlay .source-note-back .source-date { flex: none; margin-top: auto; }
