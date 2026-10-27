@@ -123,7 +123,8 @@ async function saveWriting() {
   input.value = ''; input.readOnly = true;
   setWritingDate(todayForWriting()); hideWritingDate();
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  writingAnimation = animateFlexiblePaper(copy, reduced);
+  // Ü 중첩하기는 포스트잇을 떼어 아래로 떨어뜨리듯 다음 장으로 넘깁니다.
+  writingAnimation = writingMode === 'overlay' ? animatePeelPaper(copy, reduced) : animateFlexiblePaper(copy, reduced);
   try { await writingAnimation.finished; } catch (_) { /* Esc로 애니메이션을 취소한 경우 */ }
   copy.remove(); writingAnimation = null; writingSaving = false; input.readOnly = false;
   if (writingMode === 'find' && writingOpen) resetFindAfterSave();
@@ -208,6 +209,91 @@ function animateFlexiblePaper(copy, reduced) {
   return {finished, cancel: cleanup};
 }
 
+
+// 포스트잇 떼기: 오른쪽 아래 모서리를 잡아 대각선으로 끝까지 떼어 낸 뒤,
+// 떨어진 종이가 종이처럼 좌우로 흔들리고 펴졌다 휘었다 하며 아래로 떨어집니다.
+function animatePeelPaper(copy, reduced) {
+  if (reduced) return { finished: Promise.resolve(), cancel() {} };
+  const bounds = copy.getBoundingClientRect();
+  const width = bounds.width, height = bounds.height, padding = getComputedStyle(copy).padding;
+  // 떨어지는 종이가 작성 칸 밖으로 나가도 잘리지 않도록 화면 위에 따로 띄웁니다.
+  const stage = document.createElement('div'); stage.className = 'paper-peel'; stage.setAttribute('aria-hidden', 'true');
+  Object.assign(stage.style, {left: `${bounds.left}px`, top: `${bounds.top}px`, width: `${width}px`, height: `${height}px`});
+  const mesh = document.createElement('div'); mesh.className = 'paper-curl';
+  stage.append(mesh); document.body.append(stage);
+  const columns = 12, rows = 24, tileWidth = width / columns, tileHeight = height / rows;
+  const tiles = [];
+  for (let row = 0; row < rows; row++) for (let column = 0; column < columns; column++) {
+    const tile = document.createElement('div'); tile.className = 'paper-curl-tile';
+    const front = document.createElement('div'); front.className = 'paper-curl-front';
+    const content = copy.cloneNode(true);
+    content.className = 'writing-paper paper-copy paper-curl-content';
+    Object.assign(content.style, {width: `${width}px`, height: `${height}px`, padding, left: `${-column * tileWidth}px`, top: `${-row * tileHeight}px`});
+    const shade = document.createElement('div'); shade.className = 'paper-curl-shade';
+    front.append(content, shade);
+    const back = document.createElement('div'); back.className = 'paper-curl-back';
+    tile.append(front, back);
+    Object.assign(tile.style, {width: `${tileWidth + .5}px`, height: `${tileHeight + .5}px`});
+    mesh.append(tile); tiles.push({tile, shade, row, column});
+  }
+  copy.style.visibility = 'hidden';
+  const smooth = value => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t); };
+  // 접히는 선은 오른쪽 아래 모서리에서 출발해 왼쪽 위로 대각선을 그리며 지나갑니다.
+  const n = (() => { const x = -.28, y = -1, l = Math.hypot(x, y); return [x / l, y / l]; })();
+  const corner = [width, height];
+  const reach = (width * Math.abs(n[0]) + height * Math.abs(n[1])) * 1.04;
+  // 접힌 선 뒤쪽(떼어진 부분)은 반지름 radius로 둥글게 휘어 들리고, 그 뒤는 같은 각도로 곧게 뻗습니다.
+  function bend(x, y, fold, radius, lift) {
+    const s = -((x - fold[0]) * n[0] + (y - fold[1]) * n[1]);
+    if (s <= 0) return [x, y, 0];
+    const arc = radius * lift, along = Math.min(s, arc), angle = along / radius;
+    let inPlane = radius * Math.sin(angle), z = radius * (1 - Math.cos(angle));
+    if (s > arc) { inPlane += Math.cos(lift) * (s - arc); z += Math.sin(lift) * (s - arc); }
+    const back = s - inPlane; // 접힌 만큼 접힌 선 쪽으로 당겨집니다.
+    return [x + n[0] * back, y + n[1] * back, z];
+  }
+  let frameId, done = false, resolveFinished;
+  const finished = new Promise(resolve => { resolveFinished = resolve; });
+  const finish = () => { if (done) return; done = true; cancelAnimationFrame(frameId); stage.remove(); resolveFinished(); };
+  const start = performance.now(), peelTime = 850, fallTime = 1000, total = peelTime + fallTime;
+  const sway = Math.random() < .5 ? -1 : 1;
+  const grid = Array.from({length: rows + 1}, () => new Array(columns + 1));
+  function frame(now) {
+    const elapsed = Math.min(total, now - start);
+    const peel = Math.min(1, elapsed / peelTime);
+    const fall = Math.max(0, (elapsed - peelTime) / fallTime);
+    // 떼는 동안: 접힌 선이 끝까지 지나가며 들린 부분이 점점 크게 젖혀집니다.
+    // 떨어지는 동안: 붙잡던 곡률이 풀리며 펴지다가, 공기를 받아 살짝씩 다시 휩니다.
+    const sweep = 1 - Math.pow(1 - peel, 1.6);
+    const fold = [corner[0] + n[0] * reach * sweep, corner[1] + n[1] * reach * sweep];
+    const flutter = Math.sin(fall * Math.PI * 3.2) * (1 - fall);
+    const lift = Math.PI * (.06 + .22 * smooth(peel / .6)) * (1 - .8 * smooth(fall / .55)) + .12 * flutter;
+    const radius = height * (.3 + .5 * smooth(fall / .6));
+    for (let row = 0; row <= rows; row++) for (let column = 0; column <= columns; column++) {
+      grid[row][column] = bend(column * tileWidth, row * tileHeight, fold, radius, Math.max(.001, lift));
+    }
+    for (const {tile, shade, row, column} of tiles) {
+      const a = grid[row][column], b = grid[row][column + 1], c = grid[row + 1][column];
+      const u = b.map((v, i) => (v - a[i]) / tileWidth), v = c.map((value, i) => (value - a[i]) / tileHeight);
+      const normal = [u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0]];
+      tile.style.transform = `matrix3d(${u.join(',')},0,${v.join(',')},0,${normal.join(',')},0,${a.join(',')},1)`;
+      // 빛을 비스듬히 받는 면일수록 어둡게, 정면을 향할수록 밝게 둡니다.
+      shade.style.opacity = String(.03 + .42 * (1 - Math.abs(normal[2])));
+    }
+    // 떨어지기: 중력으로 빨라지다가 공기 저항으로 일정해지고, 좌우로 흔들리며 기울기가 바뀝니다.
+    const drop = (height * .7 + 260) * (fall < .35 ? fall * fall / .7 : .175 + (fall - .35) * 1.0) / .825;
+    const swing = Math.sin(fall * Math.PI * 2.1);
+    const x = sway * (width * .22 * swing + width * .1 * fall);
+    const tiltZ = sway * (11 * swing + 6 * fall), tiltX = 22 * fall + 10 * Math.sin(fall * Math.PI * 3.2), tiltY = -sway * 14 * Math.cos(fall * Math.PI * 2.1) * fall;
+    // 떼는 동안에는 붙잡힌 쪽으로 살짝 들어 올려집니다.
+    const raise = -14 * Math.sin(Math.PI * Math.min(1, peel)) * (1 - fall);
+    mesh.style.transform = `translate3d(${x}px, ${drop * (fall > 0 ? 1 : 0) + raise}px, ${-30 * fall}px) rotateZ(${tiltZ}deg) rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
+    mesh.style.opacity = String(1 - smooth((fall - .62) / .38));
+    if (elapsed < total) frameId = requestAnimationFrame(frame); else finish();
+  }
+  frameId = requestAnimationFrame(frame);
+  return {finished, cancel: finish};
+}
 
 // 전체 기록 중 두 개를 중복 없이 뽑습니다. 화면을 여는 동안에는 같은 두 기록을 유지합니다.
 function pickOverlaySources(notes) {
