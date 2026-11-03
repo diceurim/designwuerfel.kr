@@ -247,6 +247,8 @@ function draw() {
     ellipse(0, 0, DICE_SIZE * (1.2 + i * 0.08 + lift / 220), DICE_SIZE * (1.2 + i * 0.08 + lift / 220));
     pop();
   }
+  // 3D 주사위(dice3d.js)를 불러왔으면 그쪽이 주사위를 그리고, 여기서는 바닥 그림자만 남깁니다.
+  if (window.glbDiceReady) return;
   push();
   translate(positionX, FLOOR_Y - supportHeight() - lift, positionZ);
   rotateX(diceRotation[0]);
