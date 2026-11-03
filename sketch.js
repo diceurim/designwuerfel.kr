@@ -23,6 +23,10 @@ let assetsReady = false;
 let writingViewProgress = 0;
 // 기록 화면에서 왼쪽 아래로 옮겨 그린 주사위가 시작화면 위치에서 얼마나 이동했는지(px).
 let diceScreenShift = [0, 0];
+// 지금 주사위를 그리는 배율. 휴대폰에서 화면이 열리면 작아집니다(dice3d.js도 같은 값을 씁니다).
+let diceViewScale = 1;
+// 휴대폰(폭 600px 이하)에서는 화면이 열리면 주사위를 이 비율로 줄여 왼쪽 아래 구석에 둡니다.
+const PHONE_DOCK_SCALE = .55;
 let faceShader;
 let textures = [];
 let loadedFaces = [];
@@ -211,18 +215,21 @@ function draw() {
   const sceneColor = '#121212';
   background(sceneColor);
   positionMemo();
-  const viewScale = Math.min(width / 520, height / 760, 1.25);
   // 카메라 시선을 정지한 주사위 중심에 맞춰 모든 화면 크기에서 중앙에 배치합니다.
   const centerY = FLOOR_Y - DICE_SIZE / 2;
   camera(380, centerY - 510, 760, 0, centerY, 0, 0, 1, 0);
   // 투영 범위를 이동해 창 크기에 관계없이 화면에서 정확히 5px 아래로 배치합니다.
   // 화면 전환 시 주사위를 왼쪽 아래로 부드럽게 이동합니다.
-  const destination = writingOpen && writingMode !== 'find' ? 1 : 0;
+  // 휴대폰에서는 F 발견하기에서도 주사위가 카드를 가리지 않도록 구석으로 옮깁니다. L 유희하기는 물리 주사위 위치를 따릅니다.
+  const docked = width <= 600 && !lollingWorld;
+  const destination = writingOpen && (writingMode !== 'find' || docked) ? 1 : 0;
   writingViewProgress = lerp(writingViewProgress, destination, 1 - Math.exp(-Math.min(deltaTime, 100) / 170));
   if (Math.abs(writingViewProgress - destination) < .001) writingViewProgress = destination;
+  const viewScale = Math.min(width / 520, height / 760, 1.25) * (docked ? lerp(1, PHONE_DOCK_SCALE, writingViewProgress) : 1);
+  diceViewScale = viewScale;
   const halfSize = DICE_SIZE * viewScale * .78;
-  const targetX = lollingWorld ? lollingWorld.dice.position.x : Math.max(width * .082, halfSize + 20) + 30; //오른쪽으로 30위
-  const targetY = lollingWorld ? lollingWorld.dice.position.y : height - Math.max(height * .13, halfSize + 16) - 30; // 위로 30위
+  const targetX = lollingWorld ? lollingWorld.dice.position.x : docked ? halfSize + 16 : Math.max(width * .082, halfSize + 20) + 30; //오른쪽으로 30위
+  const targetY = lollingWorld ? lollingWorld.dice.position.y : docked ? height - halfSize - 16 : height - Math.max(height * .13, halfSize + 16) - 30; // 위로 30위
   const offsetX = (targetX - width / 2) * writingViewProgress / viewScale;
   const screenOffset = (5 - (targetY - height / 2 + 5) * writingViewProgress) / viewScale;
   diceScreenShift = [(targetX - width / 2) * writingViewProgress, (targetY - height / 2 - 5) * writingViewProgress];
@@ -387,7 +394,7 @@ function ensureDiceAudio() {
 }
 
 function getDiceScreenBounds() {
-  const scale = Math.min(width / 520, height / 760, 1.25);
+  const scale = diceViewScale;
   const horizontal = Math.hypot(380, 760);
   const distance = Math.hypot(horizontal, 510);
   const centerY = FLOOR_Y - DICE_SIZE / 2;

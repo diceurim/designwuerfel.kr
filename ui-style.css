@@ -121,3 +121,18 @@ body.is-lolling #viewLabel::after { content: 'Lolling · 유희하기'; }
 .paper-peel .paper-curl { transform-origin: 50% 0; }
 .is-overlay .paper-peel .paper-curl-front { background: #2a2a2a; color: #fff; }
 .is-overlay .paper-peel .paper-curl-back { background: #4a4a4a; }
+
+/* 휴대폰: 화면이 열리면 주사위가 왼쪽 아래 구석으로 작게 내려가므로, 스크롤하는 화면은 끝에 그만큼(약 110px) 여백을 둡니다.
+   위쪽의 빈 공간도 줄여, 화면 이름표 바로 아래에서 내용이 시작되게 합니다. */
+@media (max-width: 600px) {
+ .is-overlay #writingView { height: max(100vh, 1110px); }
+ .is-overlay .overlay-source-stack { top: 76px; }
+ .is-overlay .writing-column { top: 540px; }
+ .is-find #writingView { height: 1180px; }
+ .is-find #findArchive { top: 76px; }
+ .is-find #findStatus { top: 416px; }
+ .is-find .writing-column { top: 496px; }
+ .experiment-stage { padding-bottom: 110px; }
+ /* 스크롤되는 글 위에 이름표가 겹쳐 보이지 않도록 배경색 바탕을 깝니다. */
+ #viewLabel { padding: 0 8px 0 4px; margin-left: -4px; border-radius: 4px; background: #121212; }
+}

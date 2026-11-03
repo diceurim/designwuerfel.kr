@@ -10,7 +10,8 @@ function openFind() {
   findSelected = null;
   writingElements.input.value = '';
   writingElements.input.disabled = true;
-  writingElements.input.placeholder = '왼쪽에서 메모 카드를 골라주세요';
+  // 휴대폰에서는 카드 목록이 작성란 위에 놓입니다.
+  writingElements.input.placeholder = `${innerWidth <= 600 ? '위' : '왼쪽'}에서 메모 카드를 골라주세요`;
   renderFindArchive();
 }
 function renderFindArchive() {

@@ -130,13 +130,15 @@ function render() {
     dice.quaternion.copy(faceQuaternion);
   }
   // 화면 크기에 맞춘 크기와, 기록 화면에서 왼쪽 아래로 옮겨 가는 이동을 p5와 똑같이 맞춥니다.
-  const scale = Math.min(innerWidth / 520, innerHeight / 760, 1.25);
+  const scale = diceViewScale;
   const shiftX = diceScreenShift[0] / scale, shiftY = (diceScreenShift[1] + 5) / scale;
   camera.left = -innerWidth / (2 * scale) - shiftX;
   camera.right = innerWidth / (2 * scale) - shiftX;
   camera.top = innerHeight / (2 * scale) + shiftY;
   camera.bottom = -innerHeight / (2 * scale) + shiftY;
   camera.updateProjectionMatrix();
+  // 휴대폰에서 구석으로 내려간 작은 주사위는 스크롤되는 내용에 가려지지 않게 화면 위층에 그립니다.
+  renderer.domElement.style.zIndex = innerWidth <= 600 && !lollingWorld && writingViewProgress > .5 ? '6' : '1';
   renderer.render(scene, camera);
 }
 

@@ -58,7 +58,11 @@
     .face-button[data-face="6"] { grid-column: 2; grid-row: 2; }
     @media (max-width: 600px) {
       :root { --button-size: min(13vw, 10vh); }
-      .instruction { top: 20%; width: 90vw; }
+      /* 휴대폰: W·ü·r은 위쪽, f·e·l은 아래쪽에 가로 한 줄로 놓아 안내 문구와 겹치지 않게 합니다. */
+      .face-buttons.left { top: 20px; left: 16px; grid-template-columns: repeat(3, var(--button-size)); }
+      .face-buttons.right { right: 16px; bottom: 24px; grid-template-columns: repeat(3, var(--button-size)); }
+      .face-button[data-face] { grid-column: auto; grid-row: auto; }
+      .instruction { top: calc(20px + var(--button-size) + 40px); width: 90vw; }
       .instruction .ko { font-size: 12pt; line-height: 14.4pt; }
       .instruction .de { font-size: 10pt; line-height: 12pt; }
     }
@@ -103,22 +107,22 @@
   <script src="seed-notes.js?v=3"></script>
   <script src="writing.js?v=dice-9"></script>
   <script src="p5.min.js"></script>
-  <script src="sketch.js?v=dice-7"></script>
+  <script src="sketch.js?v=dice-8"></script>
   <script src="notes.js?v=notes-drag-3"></script>
   <link rel="stylesheet" href="remember.css?v=5">
   <script src="remember.js?v=2"></script>
   <link rel="stylesheet" href="memo-theme.css?v=6">
   <link rel="stylesheet" href="find.css?v=4">
-  <script src="find.js?v=4"></script>
+  <script src="find.js?v=5"></script>
 <script src="addons/matter.min.js"></script>
 <script src="lolling.js?v=5"></script>
 <link rel="stylesheet" href="lolling.css?v=5">
 <link rel="stylesheet" href="experiment.css?v=14">
 <script src="experiment.js?v=5"></script>
-<link rel="stylesheet" href="ui-style.css?v=10">
+<link rel="stylesheet" href="ui-style.css?v=13">
 <!-- 3D 주사위: Blender에서 만든 GLB 모델과 굴림 애니메이션을 three.js로 그립니다. -->
 <script type="importmap">{ "imports": { "three": "./lib/three/three.module.min.js", "three/addons/": "./lib/three/addons/" } }</script>
-<script type="module" src="dice3d.js?v=4"></script>
+<script type="module" src="dice3d.js?v=6"></script>
 </head>
 <body>
   <!-- 화면 이름표: 열린 화면에 따라 왼쪽 위 구석에 표시됩니다(시작 화면에서는 숨김). -->
