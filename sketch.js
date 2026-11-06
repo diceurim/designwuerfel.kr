@@ -30,6 +30,13 @@ const PHONE_DOCK_SCALE = .55;
 // Shop 화면: 흰 배경에 툰 셰이딩 없는 실물 주사위만 놓입니다. shopProgress는 배경이 바뀌는 정도(0 → 1)입니다.
 let shopMode = false;
 let shopProgress = 0;
+// Shop 화면에서 주사위가 안쪽(뒤)으로 갈수록 작아지는 비율. 그림자 크기도 함께 맞춥니다(dice3d.js가 정합니다).
+let diceDepthScale = 1;
+// Shop 주사위의 밝기 단계(0: 윗면 1 → 1: 윗면 6). 밝을수록 방이 어두워지고 바닥에 따뜻한 빛이 번집니다(dice3d.js가 정합니다).
+let diceGlowLevel = 0;
+// Shop 방의 색감(고정)과 주사위 둘레 바닥 빛의 색감(고정). 밝기 단계에 따라 명도만 바뀝니다.
+const SHOP_ROOM_HUE = 222, SHOP_ROOM_SAT = 8;
+const SHOP_GLOW_HUE = 34, SHOP_GLOW_SAT = 45;
 let faceShader;
 let textures = [];
 let loadedFaces = [];
@@ -94,12 +101,13 @@ async function setup() {
   // 주사위를 클릭하거나 탭하면 스페이스바처럼 무작위로 굴립니다.
   // 기록 화면 안에서 누르면 그 화면을 닫고 시작화면으로 돌아가면서 바로 굴립니다.
   canvas.elt.addEventListener('click', event => {
-    if (!isOverDice(event) || throwState) return;
+    // Shop 화면의 주사위는 클릭으로 던지지 않고, 들어 올렸다 놓아야 던져집니다(dice3d.js).
+    if (shopMode || !isOverDice(event) || throwState) return;
     if (writingOpen) closeCurrentView();
     rollDice();
   });
   canvas.elt.addEventListener('pointermove', event => {
-    canvas.elt.style.cursor = !throwState && isOverDice(event) ? 'pointer' : '';
+    canvas.elt.style.cursor = !shopMode && !throwState && isOverDice(event) ? 'pointer' : '';
   });
   if (IS_TOUCH) adaptCopyForTouch();
   cycleInlineFaces();
@@ -164,7 +172,8 @@ function rollDice(requestedFace = null) {
   // 여러 바퀴 회전한 뒤 마지막에는 면이 바닥과 평행하게 정렬됩니다.
   const end = target.map((angle, i) => angle + Math.round(start[i] / TWO_PI) * TWO_PI + Math.floor(random(3, 6)) * TWO_PI);
   document.querySelector('.instruction').hidden = true;
-  throwState = { startTime: millis(), start, end, startX: positionX, startZ: positionZ, endX: 0, endZ: 0, shop: shopMode };
+  // Shop 화면에서는 들어 올린 그 칸에 다시 떨어집니다.
+  throwState = { startTime: millis(), start, end, startX: positionX, startZ: positionZ, endX: shopMode ? positionX : 0, endZ: shopMode ? positionZ : 0, shop: shopMode };
 }
 
 function updateThrow() {
@@ -221,7 +230,10 @@ function draw() {
   updateThrow();
   shopProgress = lerp(shopProgress, shopMode ? 1 : 0, 1 - Math.exp(-Math.min(deltaTime, 100) / 120));
   if (Math.abs(shopProgress - (shopMode ? 1 : 0)) < .001) shopProgress = shopMode ? 1 : 0;
-  const sceneColor = lerpColor(color('#121212'), color('#ffffff'), shopProgress);
+  // Shop 화면의 방: 색감은 푸른 기가 살짝 도는 회색으로 고정하고, 주사위 조명이 밝아질수록 명도만 낮춥니다(96% → 8%).
+  const roomLightness = lerp(96, 8, Math.pow(diceGlowLevel, 0.8));
+  const shopRoom = color(`hsl(${SHOP_ROOM_HUE}, ${SHOP_ROOM_SAT}%, ${roomLightness}%)`);
+  const sceneColor = lerpColor(color('#121212'), shopRoom, shopProgress);
   background(sceneColor);
   positionMemo();
   // 카메라 시선을 정지한 주사위 중심에 맞춰 모든 화면 크기에서 중앙에 배치합니다.
@@ -253,14 +265,42 @@ function draw() {
   fill(sceneColor);
   plane(5000, 5000);
   pop();
-  for (let i = writingOpen ? 0 : 10; i > 0; i--) {
+  for (let i = writingOpen || shopProgress === 1 ? 0 : 10; i > 0; i--) {
     push();
     // Y축은 아래 방향: 밑면(150) < 그림자(150.32~150.5) < 바닥(151).
     // 그림자가 밑면 앞에서 깊이 버퍼를 차지하지 않도록 바닥 쪽에 배치합니다.
     translate(positionX, FLOOR_Y + 0.5 - (10 - i) * 0.02, positionZ);
     rotateX(HALF_PI);
-    fill(0, 0, 0, (1 - lift / 350) * 12);
+    // Shop 화면에서는 아래의 또렷한 그림자로 바뀌므로, 이 번진 그림자는 사라집니다.
+    fill(0, 0, 0, (1 - lift / 350) * 12 * (1 - shopProgress));
     ellipse(0, 0, DICE_SIZE * (1.2 + i * 0.08 + lift / 220), DICE_SIZE * (1.2 + i * 0.08 + lift / 220));
+    pop();
+  }
+  // Shop 화면에서 주사위가 밝을 때 바닥에 번지는 빛(그림자 아래 층, 150.6~150.9).
+  // 색감은 늘 같은 따뜻한 톤이고, 밝기 단계에 따라 명도와 퍼지는 세기만 달라집니다.
+  // 반투명 겹이 아니라 방 색 → 빛 색으로 직접 섞은 불투명 겹이라, 방이 밝든 어둡든 같은 톤으로 보입니다.
+  if (shopProgress > 0 && !writingOpen && diceGlowLevel > 0.01) {
+    const glowLightness = Math.min(90, roomLightness + 24 * diceGlowLevel);
+    const glowColor = color(`hsl(${SHOP_GLOW_HUE}, ${SHOP_GLOW_SAT}%, ${glowLightness}%)`);
+    for (let i = 36; i > 0; i--) {
+      push();
+      translate(positionX, FLOOR_Y + 0.6 + i * 0.008, positionZ);
+      rotateX(HALF_PI);
+      fill(lerpColor(sceneColor, glowColor, Math.pow(1 - i / 37, 2) * diceGlowLevel * shopProgress));
+      const size = DICE_SIZE * diceDepthScale * (1.4 + i * 0.065);
+      ellipse(0, 0, size, size, 72);
+      pop();
+    }
+  }
+  // Shop 화면의 그림자: 위와 같은 자리·모양이지만 번지지 않고 가장자리가 또렷한 한 겹입니다.
+  // 번진 그림자 겹(150.32~150.5)보다 살짝 위(150.25)에 두어 깊이 비교에서 가려지지 않게 합니다.
+  if (shopProgress > 0 && !writingOpen) {
+    push();
+    translate(positionX, FLOOR_Y + 0.25, positionZ);
+    rotateX(HALF_PI);
+    fill(0, 0, 0, (1 - lift / 350) * 38 * shopProgress);
+    const size = DICE_SIZE * diceDepthScale * (1.5 + lift / 220);
+    ellipse(0, 0, size, size, 72);
     pop();
   }
   // 3D 주사위(dice3d.js)를 불러왔으면 그쪽이 주사위를 그리고, 여기서는 바닥 그림자만 남깁니다.
@@ -285,7 +325,7 @@ function draw() {
 }
 
 function keyPressed(event) {
-  if (writingOpen) return;
+  if (writingOpen || shopMode) return;
   if (event.code === 'Space' && !event.target.isContentEditable && !['INPUT', 'SUMMARY', 'TEXTAREA'].includes(event.target.tagName)) {
     event.preventDefault();
     if (!event.repeat) rollDice();
@@ -388,6 +428,15 @@ function positionMemo() {
   memoElement.style.left = `${Math.max(8, width / 2 - diceWidth / 2 - gap - noteSize + memoOffsetX)}px`;
   memoElement.style.top = `${height / 2 + 5 - noteSize / 2}px`;
   memoElement.style.padding = noteSize < 120 ? '8px' : '16px';
+}
+
+// 주사위가 넘어가며 바닥에 닿을 때의 '탁' 소리: 던질 때의 '타탁다닥' 중 한 번의 충돌음을 그대로 씁니다.
+function playTipImpact(strength = 1) {
+  try {
+    ensureDiceAudio();
+    if (!diceAudio || !impactNoise) return;
+    diceAudio.resume().then(() => playDiceImpact(diceAudio.currentTime + 0.005, 0.38 * strength)).catch(() => {});
+  } catch (_) {}
 }
 
 function ensureDiceAudio() {
