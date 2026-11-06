@@ -27,6 +27,9 @@ let diceScreenShift = [0, 0];
 let diceViewScale = 1;
 // 휴대폰(폭 600px 이하)에서는 화면이 열리면 주사위를 이 비율로 줄여 왼쪽 아래 구석에 둡니다.
 const PHONE_DOCK_SCALE = .55;
+// Shop 화면: 흰 배경에 툰 셰이딩 없는 실물 주사위만 놓입니다. shopProgress는 배경이 바뀌는 정도(0 → 1)입니다.
+let shopMode = false;
+let shopProgress = 0;
 let faceShader;
 let textures = [];
 let loadedFaces = [];
@@ -86,6 +89,7 @@ async function setup() {
   textures = loadedFaces.map(prepareImageTexture);
   assetsReady = true;
   setupFaceButtons();
+  setupModeButtons();
   setupWriting();
   // 주사위를 클릭하거나 탭하면 스페이스바처럼 무작위로 굴립니다.
   // 기록 화면 안에서 누르면 그 화면을 닫고 시작화면으로 돌아가면서 바로 굴립니다.
@@ -160,7 +164,7 @@ function rollDice(requestedFace = null) {
   // 여러 바퀴 회전한 뒤 마지막에는 면이 바닥과 평행하게 정렬됩니다.
   const end = target.map((angle, i) => angle + Math.round(start[i] / TWO_PI) * TWO_PI + Math.floor(random(3, 6)) * TWO_PI);
   document.querySelector('.instruction').hidden = true;
-  throwState = { startTime: millis(), start, end, startX: positionX, startZ: positionZ, endX: 0, endZ: 0 };
+  throwState = { startTime: millis(), start, end, startX: positionX, startZ: positionZ, endX: 0, endZ: 0, shop: shopMode };
 }
 
 function updateThrow() {
@@ -179,7 +183,10 @@ function updateThrow() {
   if (t === 1) {
     diceRotation = diceRotation.map(angle => ((angle % TWO_PI) + TWO_PI) % TWO_PI);
     lift = 0;
+    const thrownInShop = throwState.shop;
     throwState = null;
+    // Shop 화면에서 굴린 주사위는 굴리는 경험만 주고, 기록 화면은 열지 않습니다.
+    if (thrownInShop) return;
     setActiveFace(getTopFace());
     if (getTopFace() === 1) openWriting();
     else if (getTopFace() === 2) openWriting('overlay');
@@ -212,7 +219,9 @@ function supportHeight() {
 function draw() {
   if (!assetsReady) return;
   updateThrow();
-  const sceneColor = '#121212';
+  shopProgress = lerp(shopProgress, shopMode ? 1 : 0, 1 - Math.exp(-Math.min(deltaTime, 100) / 120));
+  if (Math.abs(shopProgress - (shopMode ? 1 : 0)) < .001) shopProgress = shopMode ? 1 : 0;
+  const sceneColor = lerpColor(color('#121212'), color('#ffffff'), shopProgress);
   background(sceneColor);
   positionMemo();
   // 카메라 시선을 정지한 주사위 중심에 맞춰 모든 화면 크기에서 중앙에 배치합니다.
@@ -432,6 +441,18 @@ function setActiveFace(value) {
     button.classList.toggle('is-selected', selected);
     button.setAttribute('aria-pressed', String(selected));
   });
+}
+
+// 시작 화면 오른쪽 위 Shop 버튼과 Shop 화면 왼쪽 위 Memo 버튼으로 두 화면을 오갑니다.
+function setupModeButtons() {
+  document.getElementById('shopButton').addEventListener('click', () => setShopMode(true));
+  document.getElementById('memoButton').addEventListener('click', () => setShopMode(false));
+}
+function setShopMode(on) {
+  if (writingOpen) return;
+  shopMode = on;
+  document.body.classList.toggle('is-shop', on);
+  if (!on && !throwState) document.querySelector('.instruction').hidden = false;
 }
 
 function setupFaceButtons() {

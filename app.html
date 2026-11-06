@@ -107,7 +107,7 @@
   <script src="seed-notes.js?v=3"></script>
   <script src="writing.js?v=dice-9"></script>
   <script src="p5.min.js"></script>
-  <script src="sketch.js?v=dice-8"></script>
+  <script src="sketch.js?v=shop-2"></script>
   <script src="notes.js?v=notes-drag-3"></script>
   <link rel="stylesheet" href="remember.css?v=5">
   <script src="remember.js?v=2"></script>
@@ -119,10 +119,10 @@
 <link rel="stylesheet" href="lolling.css?v=5">
 <link rel="stylesheet" href="experiment.css?v=14">
 <script src="experiment.js?v=5"></script>
-<link rel="stylesheet" href="ui-style.css?v=13">
+<link rel="stylesheet" href="ui-style.css?v=14">
 <!-- 3D 주사위: Blender에서 만든 GLB 모델과 굴림 애니메이션을 three.js로 그립니다. -->
 <script type="importmap">{ "imports": { "three": "./lib/three/three.module.min.js", "three/addons/": "./lib/three/addons/" } }</script>
-<script type="module" src="dice3d.js?v=6"></script>
+<script type="module" src="dice3d.js?v=9"></script>
 </head>
 <body>
   <!-- 화면 이름표: 열린 화면에 따라 왼쪽 위 구석에 표시됩니다(시작 화면에서는 숨김). -->
@@ -134,6 +134,9 @@
     <p class="ko" lang="ko"><span class="inline-face" aria-hidden="true"><img src="assets/face-1.png" alt=""></span> 버튼을 눌러 영감을 기록할 수는 있지만,<br>가능한 <u>스페이스바</u>를 눌러 주사위를 굴려보세요</p>
     <p class="de" lang="de">Du kannst deine Inspirationen auch per Klick auf den <span class="inline-face" aria-hidden="true"><img src="assets/face-1.png" alt=""></span> Button festhalten.<br>Versuch aber, möglichst <u>die Leertaste</u> zu drücken, um zu würfeln!</p>
   </section>
+  <!-- 화면 전환: 시작 화면 ↔ Shop(흰 배경의 실물 주사위) -->
+  <button id="shopButton" class="glass-button mode-shop" type="button">Shop</button>
+  <button id="memoButton" class="glass-button mode-memo" type="button">Memo</button>
   <nav class="face-buttons left" aria-label="W ü r">
     <button class="face-button" data-face="1" type="button" aria-label="W"><img src="assets/face-1.png" alt=""></button>
     <button class="face-button" data-face="2" type="button" aria-label="ü"><img src="assets/face-2.png" alt=""></button>

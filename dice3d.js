@@ -3,6 +3,7 @@
 // GLB를 불러오지 못하면 아무것도 하지 않아 기존 p5 주사위가 그대로 보입니다.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const BLEND_TIME = 180; // 굴리기 시작할 때 이전 자세에서 애니메이션 첫 자세로 넘어가는 시간(ms)
 
@@ -16,6 +17,8 @@ const scene = new THREE.Scene();
 const sun = new THREE.DirectionalLight(0xffffff, 3);
 sun.position.set(-150, 700, 350);
 scene.add(sun, new THREE.AmbientLight(0xffffff, 0.2));
+// Shop 화면의 실물 주사위(원래 재질)가 금속·아크릴 반사를 갖도록 실내 조명 환경을 비춥니다. 툰 재질에는 영향이 없습니다.
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
 const TOON_STEPS = (() => {
   const texture = new THREE.DataTexture(new Uint8Array([90, 255]), 2, 1, THREE.RedFormat);
   texture.minFilter = texture.magFilter = THREE.NearestFilter;
@@ -40,17 +43,21 @@ const TOON_INK = new THREE.MeshBasicMaterial({ color: 0x000000 });
 // 바깥 테두리: 뒤에서 비치는 빛이 가장자리에 맺힌 것처럼 흰 선을 두릅니다.
 const OUTLINE = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.BackSide });
 // 아이보리 면은 흰 툰 재질, 금속 테두리는 먹색으로 바꾸고, 가장 바깥 모양을 조금 키운 뒷면으로 흰 외곽선을 그립니다.
+// Shop 화면에서 되돌릴 수 있도록 원래 재질과 툰 재질을 둘 다 기억해 둡니다.
+let toonMeshes = [], outline = null, showingReal = false;
 function applyToon(model) {
-  const meshes = [];
+  const meshes = toonMeshes;
   model.traverse(child => { if (child.isMesh) meshes.push(child); });
   const size = mesh => { mesh.geometry.computeBoundingBox(); return mesh.geometry.boundingBox.getSize(new THREE.Vector3()).length(); };
   // 외곽선은 가장 바깥 모양 하나에만 둘러, 안쪽 면 경계에는 흰 선이 생기지 않게 합니다.
   const outer = meshes.reduce((a, b) => size(b) > size(a) ? b : a);
   for (const mesh of meshes) {
     const names = [].concat(mesh.material).map(material => material.name || '').join(' ');
-    mesh.material = /ivory|body/i.test(names) ? TOON_BODY : TOON_INK;
+    mesh.userData.realMaterial = mesh.material;
+    mesh.userData.toonMaterial = /ivory|body/i.test(names) ? TOON_BODY : TOON_INK;
+    mesh.material = mesh.userData.toonMaterial;
   }
-  const outline = new THREE.Mesh(outer.geometry, OUTLINE);
+  outline = new THREE.Mesh(outer.geometry, OUTLINE);
   outline.scale.setScalar(1.03);
   outer.add(outline);
 }
@@ -109,7 +116,22 @@ function resize() {
 }
 addEventListener('resize', resize);
 
+// Shop 화면(배경이 절반 넘게 밝아졌을 때)에서는 툰 셰이딩과 흰 외곽선을 빼고 원래 재질로 보여줍니다.
+function updateLook() {
+  const real = shopProgress > .5;
+  if (real === showingReal) return;
+  showingReal = real;
+  for (const mesh of toonMeshes) mesh.material = real ? mesh.userData.realMaterial : mesh.userData.toonMaterial;
+  outline.visible = !real;
+  // 원래 재질은 실내 조명 환경도 받으므로, 직사광을 줄여 흰 면이 하얗게 날아가지 않게 합니다.
+  sun.intensity = real ? 1.2 : 3;
+}
+
 function render() {
+  // 창 크기가 바뀌는 도중의 resize 이벤트만 받고 끝난 경우에도 캔버스가 화면 크기를 따라가게 합니다.
+  const drawn = renderer.getSize(new THREE.Vector2());
+  if (drawn.x !== innerWidth || drawn.y !== innerHeight) resize();
+  updateLook();
   // 새로 굴리기 시작했으면, 이번 결과 면에 맞는 자세를 모델에 미리 돌려 둡니다.
   if (throwState && throwState !== currentRoll) {
     currentRoll = throwState;
