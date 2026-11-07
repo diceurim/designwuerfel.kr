@@ -305,10 +305,20 @@ function cellRect(cell) {
   }
   return rect;
 }
-// 화면 테두리까지의 여유(px). 음수면 그만큼 화면 밖으로 삐져나감
+// 주사위가 멈춰 쉬는 영역: 화면에서 위쪽 Memo 버튼과 아래쪽 안내 문구 자리를 뺀 곳(매 프레임 실제 위치로 갱신).
+// 휴대폰처럼 화면이 작을 때 주사위가 버튼·안내 밑에 멈춰 잡기 어려워지지 않게 합니다. 화면 밖 판정과 점대칭 계산은 화면 전체 기준 그대로입니다.
+let playTop = 0, playBottom = 0;
+function updatePlayArea() {
+  const memo = document.getElementById('memoButton'), hint = document.querySelector('.shop-hint');
+  const memoRect = memo && memo.offsetParent ? memo.getBoundingClientRect() : null;
+  const hintRect = hint && hint.offsetParent ? hint.getBoundingClientRect() : null;
+  playTop = memoRect ? memoRect.bottom + 8 : 0;
+  playBottom = hintRect && hintRect.height ? innerHeight - hintRect.top + 8 : 0;
+}
+// 쉬는 영역 테두리까지의 여유(px). 음수면 그만큼 밖으로 삐져나감
 function sideGaps(cell) {
   const r = cellRect(cell);
-  return { left: r.left, right: innerWidth - r.right, top: r.top, bottom: innerHeight - r.bottom };
+  return { left: r.left, right: innerWidth - r.right, top: r.top - playTop, bottom: innerHeight - playBottom - r.bottom };
 }
 const NEAR_EDGE = 0.4;      // 테두리까지 여유가 주사위 한 변의 0.4배보다 작으면 '가장자리'(잡기 어려운 자리)
 const INSIDE_PAD = 8;       // 복귀가 끝났을 때 테두리에서 최소한 떨어져 있을 거리(px)
@@ -412,6 +422,7 @@ function updateShop() {
     return;
   }
   wasShop = true;
+  updatePlayArea();
   keepInsideAfterResize();
   const rootQuaternion = root.getWorldQuaternion(new THREE.Quaternion());
   const center = new THREE.Vector3(shopCell[0] * DICE_SIZE, HALF, shopCell[1] * DICE_SIZE);
@@ -505,9 +516,15 @@ const raycaster = new THREE.Raycaster(), pointerNdc = new THREE.Vector2();
 function hitsDice(event) {
   pointerNdc.set(event.clientX / innerWidth * 2 - 1, -(event.clientY / innerHeight) * 2 + 1);
   raycaster.setFromCamera(pointerNdc, camera);
-  return raycaster.intersectObjects(toonMeshes, false).length > 0;
+  if (raycaster.intersectObjects(toonMeshes, false).length > 0) return true;
+  // 손가락은 마우스보다 굵으므로, 터치일 때는 주사위 둘레 24px까지 잡은 것으로 봅니다.
+  if (event.pointerType !== 'touch') return false;
+  const r = cellRect(shopCell), pad = 24;
+  return event.clientX > r.left - pad && event.clientX < r.right + pad && event.clientY > r.top - pad && event.clientY < r.bottom + pad;
 }
 addEventListener('pointerdown', event => {
+  // iOS 등은 손으로 만진 순간에만 소리를 켤 수 있어, Shop에서 첫 터치 때 오디오를 깨워 둡니다.
+  if (shopMode && typeof ensureDiceAudio === 'function') { ensureDiceAudio(); diceAudio?.resume?.().catch(() => {}); }
   if (!shopReady() || event.target.tagName !== 'CANVAS' || !hitsDice(event)) return;
   drag = { x: event.clientX, y: event.clientY, lifting: false };
   document.body.style.cursor = 'grabbing';
