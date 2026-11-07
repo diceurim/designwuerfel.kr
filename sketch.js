@@ -34,9 +34,52 @@ let shopProgress = 0;
 let diceDepthScale = 1;
 // Shop 주사위의 밝기 단계(0: 윗면 1 → 1: 윗면 6). 밝을수록 방이 어두워지고 바닥에 따뜻한 빛이 번집니다(dice3d.js가 정합니다).
 let diceGlowLevel = 0;
+let lastHintInk = '';
 // Shop 방의 색감(고정)과 주사위 둘레 바닥 빛의 색감(고정). 밝기 단계에 따라 명도만 바뀝니다.
 const SHOP_ROOM_HUE = 222, SHOP_ROOM_SAT = 8;
 const SHOP_GLOW_HUE = 34, SHOP_GLOW_SAT = 45;
+// Shop 바닥(=배경) 셰이더: 주사위 조명이 밝을수록 방 전체가 밝아집니다(윗면 1 = 어두운 방, 6 = 하얀 방).
+// 빛은 화면 가운데의 둥근 사각형 모양으로 퍼지고, 네 모서리로 갈수록 부드럽게 어두워집니다.
+// 주사위 둘레 바닥에는 늘 같은 따뜻한 빛이 밝기 단계만큼 번집니다(바닥 위 거리로 계산해 원근감이 그대로 따라옵니다).
+let floorShader;
+const FLOOR_SIZE = 5000;
+const FLOOR_VERT = `
+  precision highp float;
+  attribute vec3 aPosition;
+  uniform mat4 uModelViewMatrix;
+  uniform mat4 uProjectionMatrix;
+  varying vec2 vFloor;
+  void main() {
+    vFloor = aPosition.xy;
+    gl_Position = uProjectionMatrix * uModelViewMatrix * vec4(aPosition, 1.0);
+  }`;
+const FLOOR_FRAG = `
+  precision highp float;
+  varying vec2 vFloor;
+  uniform vec2 uResolution;
+  uniform float uLevel, uShop, uFloorSize, uSpillRadius;
+  uniform vec2 uDice;
+  uniform vec3 uMemo, uDark, uLight, uWarm;
+  float roundedBox(vec2 p, vec2 halfSize, float radius) {
+    vec2 q = abs(p) - halfSize + radius;
+    return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
+  }
+  void main() {
+    vec2 c = uResolution * 0.5, p = gl_FragCoord.xy - c;
+    float m = min(uResolution.x, uResolution.y);
+    // 둥근 사각형 빛: 화면보다 조금 작은 사각형, 모서리 반지름은 짧은 변의 22%, 경계는 18% 폭으로 부드럽게
+    float d = roundedBox(p, c - m * 0.1, m * 0.22);
+    float shape = 1.0 - smoothstep(-m * 0.12, m * 0.1, d);
+    // 가운데 밝기는 단계에 비례해 오르고, 모서리 어둠은 단계가 오를수록 옅어져 6에서는 방 전체가 하얘집니다.
+    float centerLight = mix(0.16, 1.0, uLevel);
+    float cornerLight = uLevel * uLevel;
+    vec3 room = mix(uDark, uLight, mix(cornerLight, centerLight, shape));
+    // 주사위 둘레의 따뜻한 빛
+    float dist = length(vFloor * uFloorSize - uDice) / uSpillRadius;
+    room = mix(room, uWarm, exp(-dist * dist) * (0.15 + 0.45 * uLevel));
+    gl_FragColor = vec4(mix(uMemo, room, uShop), 1.0);
+  }`;
+const colorVec = c => [red(c) / 255, green(c) / 255, blue(c) / 255];
 let faceShader;
 let textures = [];
 let loadedFaces = [];
@@ -94,6 +137,7 @@ async function setup() {
     }
   `);
   textures = loadedFaces.map(prepareImageTexture);
+  floorShader = createShader(FLOOR_VERT, FLOOR_FRAG);
   assetsReady = true;
   setupFaceButtons();
   setupModeButtons();
@@ -230,11 +274,15 @@ function draw() {
   updateThrow();
   shopProgress = lerp(shopProgress, shopMode ? 1 : 0, 1 - Math.exp(-Math.min(deltaTime, 100) / 120));
   if (Math.abs(shopProgress - (shopMode ? 1 : 0)) < .001) shopProgress = shopMode ? 1 : 0;
-  // Shop 화면의 방: 색감은 푸른 기가 살짝 도는 회색으로 고정하고, 주사위 조명이 밝아질수록 명도만 낮춥니다(96% → 8%).
-  const roomLightness = lerp(96, 8, Math.pow(diceGlowLevel, 0.8));
-  const shopRoom = color(`hsl(${SHOP_ROOM_HUE}, ${SHOP_ROOM_SAT}%, ${roomLightness}%)`);
-  const sceneColor = lerpColor(color('#121212'), shopRoom, shopProgress);
+  // Shop 화면의 방: 색감은 푸른 기가 살짝 도는 회색으로 고정하고 명도만 바뀝니다. 윗면 1은 어두운 방(8%), 6은 하얀 방(97%).
+  // 화면 안쪽의 실제 색은 아래 바닥 셰이더가 정하고, 여기 배경색은 바닥이 닿지 않는 곳(모서리 쪽)과 같은 색입니다.
+  const roomDark = color(`hsl(${SHOP_ROOM_HUE}, ${SHOP_ROOM_SAT}%, 8%)`);
+  const roomLight = color(`hsl(${SHOP_ROOM_HUE}, ${SHOP_ROOM_SAT}%, 97%)`);
+  const sceneColor = lerpColor(color('#121212'), lerpColor(roomDark, roomLight, diceGlowLevel * diceGlowLevel), shopProgress);
   background(sceneColor);
+  // Shop 안내 글자색: 방이 밝아지면 진한 회색, 어두우면 밝은 회색으로 바꿔 어느 단계에서도 읽히게 합니다.
+  const hintInk = diceGlowLevel > 0.55 ? '#6f7178' : '#b4b6bc';
+  if (hintInk !== lastHintInk) { lastHintInk = hintInk; document.body.style.setProperty('--shop-hint-ink', hintInk); }
   positionMemo();
   // 카메라 시선을 정지한 주사위 중심에 맞춰 모든 화면 크기에서 중앙에 배치합니다.
   const centerY = FLOOR_Y - DICE_SIZE / 2;
@@ -262,8 +310,24 @@ function draw() {
   push();
   translate(0, FLOOR_Y + 1, 0);
   rotateX(HALF_PI);
-  fill(sceneColor);
-  plane(5000, 5000);
+  if (shopProgress > 0) {
+    shader(floorShader);
+    floorShader.setUniform('uResolution', [width * pixelDensity(), height * pixelDensity()]);
+    floorShader.setUniform('uLevel', diceGlowLevel);
+    floorShader.setUniform('uShop', shopProgress);
+    floorShader.setUniform('uFloorSize', FLOOR_SIZE);
+    floorShader.setUniform('uDice', [positionX, positionZ]);
+    floorShader.setUniform('uSpillRadius', DICE_SIZE * 1.6 * diceDepthScale);
+    floorShader.setUniform('uMemo', colorVec(color('#121212')));
+    floorShader.setUniform('uDark', colorVec(roomDark));
+    floorShader.setUniform('uLight', colorVec(roomLight));
+    floorShader.setUniform('uWarm', colorVec(color(`hsl(${SHOP_GLOW_HUE}, ${SHOP_GLOW_SAT + 20}%, 72%)`)));
+    plane(FLOOR_SIZE, FLOOR_SIZE);
+    resetShader();
+  } else {
+    fill(sceneColor);
+    plane(FLOOR_SIZE, FLOOR_SIZE);
+  }
   pop();
   for (let i = writingOpen || shopProgress === 1 ? 0 : 10; i > 0; i--) {
     push();
@@ -275,22 +339,6 @@ function draw() {
     fill(0, 0, 0, (1 - lift / 350) * 12 * (1 - shopProgress));
     ellipse(0, 0, DICE_SIZE * (1.2 + i * 0.08 + lift / 220), DICE_SIZE * (1.2 + i * 0.08 + lift / 220));
     pop();
-  }
-  // Shop 화면에서 주사위가 밝을 때 바닥에 번지는 빛(그림자 아래 층, 150.6~150.9).
-  // 색감은 늘 같은 따뜻한 톤이고, 밝기 단계에 따라 명도와 퍼지는 세기만 달라집니다.
-  // 반투명 겹이 아니라 방 색 → 빛 색으로 직접 섞은 불투명 겹이라, 방이 밝든 어둡든 같은 톤으로 보입니다.
-  if (shopProgress > 0 && !writingOpen && diceGlowLevel > 0.01) {
-    const glowLightness = Math.min(90, roomLightness + 24 * diceGlowLevel);
-    const glowColor = color(`hsl(${SHOP_GLOW_HUE}, ${SHOP_GLOW_SAT}%, ${glowLightness}%)`);
-    for (let i = 36; i > 0; i--) {
-      push();
-      translate(positionX, FLOOR_Y + 0.6 + i * 0.008, positionZ);
-      rotateX(HALF_PI);
-      fill(lerpColor(sceneColor, glowColor, Math.pow(1 - i / 37, 2) * diceGlowLevel * shopProgress));
-      const size = DICE_SIZE * diceDepthScale * (1.4 + i * 0.065);
-      ellipse(0, 0, size, size, 72);
-      pop();
-    }
   }
   // Shop 화면의 그림자: 위와 같은 자리·모양이지만 번지지 않고 가장자리가 또렷한 한 겹입니다.
   // 번진 그림자 겹(150.32~150.5)보다 살짝 위(150.25)에 두어 깊이 비교에서 가려지지 않게 합니다.

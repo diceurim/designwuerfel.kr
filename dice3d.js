@@ -58,6 +58,8 @@ const ACRYLIC = new THREE.MeshPhysicalMaterial({
 });
 // 밝기 단계(0: 윗면 1 → 1: 윗면 6). 숫자가 클수록 빛이 세지고 패널이 더 투명하게 빛을 통과시키는 것처럼 보입니다.
 const GLOW_LEVEL = { value: 0 };
+// 윗면 3~6에서 주사위 밝기만 낮추는 양(단계 단위). 배경 밝기에는 영향 없음
+const DICE_DIM_ABOVE_TWO = 0.1;
 ACRYLIC.onBeforeCompile = shader => {
   shader.uniforms.uGlowLevel = GLOW_LEVEL;
   shader.vertexShader = shader.vertexShader
@@ -81,9 +83,9 @@ ACRYLIC.onBeforeCompile = shader => {
       float grain = acrylicHash(floor(vObjectPosition * 6000.0));
       diffuseColor.rgb *= 0.92 + 0.14 * grain;
       diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.9, 0.74, 0.58), pit * 0.75);
-      // 밝아질수록(투과도가 오를수록) 가장자리가 덜 가라앉고, 패널 바탕은 빛에 묻혀 옅어집니다.
+      // 밝아질수록(투과도가 오를수록) 가장자리가 덜 가라앉습니다.
       diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.78, 0.69, 0.6), smoothstep(0.35, 1.0, edge) * 0.55 * (1.0 - 0.6 * uGlowLevel));
-      diffuseColor.rgb *= 1.0 - 0.15 * uGlowLevel;`)
+`)
     .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
       float glow = (0.2 + 0.12 * uGlowLevel) + pow(1.0 - edge, 1.5 - 0.4 * uGlowLevel) * (0.32 + 0.2 * uGlowLevel) + smoothstep(0.9, 1.0, edge) * (0.18 + 0.1 * uGlowLevel);
       // 밝아져도 하얗게 날아가지 않고 따뜻한 빛으로 남도록, 빛 색을 단계에 따라 살구빛 쪽으로 기울입니다.
@@ -170,6 +172,14 @@ async function load() {
   mixer.setTime(clipDuration - 1e-4);
   faceQuaternion = topFaceQuaternion(diceRotation);
   dice.quaternion.copy(faceQuaternion);
+  // 주사위 실제 모양(둥근 모서리)의 가장 먼 점까지 거리: 화면에 조금이라도 보이는지 판단할 때 씁니다.
+  dice.updateWorldMatrix(true, true);
+  const restCenterWorld = new THREE.Box3().setFromObject(dice).getCenter(new THREE.Vector3()), vertex = new THREE.Vector3();
+  dice.traverse(child => {
+    if (!child.isMesh || child === outline) return;
+    const position = child.geometry.attributes.position;
+    for (let i = 0; i < position.count; i += 3) diceRadius = Math.max(diceRadius, vertex.fromBufferAttribute(position, i).applyMatrix4(child.matrixWorld).distanceTo(restCenterWorld));
+  });
   // 굴림 애니메이션이 끝났을 때의 회전(착지할 숫자를 미리 계산할 때 씁니다).
   root.getWorldQuaternion(restRootQuaternion);
   // 정지한 주사위 중심이 무대 원점에서 얼마나 떨어져 있는지(Shop 화면에서 칸 위치를 맞출 때 씁니다).
@@ -259,6 +269,7 @@ const stage = new THREE.Group();
 const restCenter = new THREE.Vector3();
 let shopCell = [0, 0], tipState = null, drag = null, heldLift = 0, throwLift = 0, wasShop = false, shopYaw = 0, throwYaw = 0;
 const restRootQuaternion = new THREE.Quaternion();
+let diceRadius = 0;   // 주사위 중심에서 가장 먼 표면까지(월드 단위, 원근 크기 1 기준)
 let shownGlow = 0, lastFrame = performance.now();
 
 const depthScale = z => z < 0 ? 1 + Math.max(z / (2 * DICE_SIZE), -1) * 0.12 : 1 + Math.min(z / DICE_SIZE, 3) * 0.1;
@@ -496,20 +507,25 @@ function updateShop() {
   diceDepthScale = scale;
   // 윗면 숫자가 클수록 속의 조명이 밝아지고, 숫자가 바뀌면 천천히 그 밝기로 옮겨 갑니다.
   // 공중에서 구르는 동안에는 밝기·배경을 그대로 두고, 착지한 뒤에 새 숫자의 밝기로 옮겨 갑니다.
-  if (!throwState) shownGlow += ((currentTopFace() - 1) / 5 - shownGlow) * (1 - Math.exp(-dt / 380));
+  // 주사위가 화면 밖으로 완전히 나가 있는 동안에도 마지막으로 보였을 때의 밝기·배경을 그대로 두고,
+  // 조금이라도 다시 보이기 시작하면 그때의 윗면 숫자로 이어서 바뀝니다(주사위 렌더링 방식은 그대로).
+  // 주사위를 감싸는 공의 화면 원이 화면과 한 점이라도 겹치면 '보임'으로 봅니다(직교 카메라라 원 그대로 투영됨).
+  const centerPx = toScreen(new THREE.Vector3(center.x, center.y + heldLift, center.z));
+  const radiusPx = diceRadius * scale * diceViewScale;
+  const nearestX = Math.min(Math.max(centerPx.x, 0), innerWidth), nearestY = Math.min(Math.max(centerPx.y, 0), innerHeight);
+  const diceVisible = Math.hypot(centerPx.x - nearestX, centerPx.y - nearestY) < radiusPx;
+  if (!throwState && diceVisible) shownGlow += ((currentTopFace() - 1) / 5 - shownGlow) * (1 - Math.exp(-dt / 380));
   // 윗면 1의 밝기(emissiveIntensity 1, 속 광원 2.2)에서 시작해 6으로 갈수록 훨씬 밝아집니다.
-  GLOW_LEVEL.value = shownGlow;
+  // 배경은 단계 그대로(diceGlowLevel), 주사위 밝기는 윗면 3~6에서 같은 만큼(0.1단계) 낮춰 씁니다.
+  // 2(0.2)와 3(0.4) 사이에서 서서히 내려가므로, 3 이상도 늘 2보다는 밝습니다(3 → 0.3, 6 → 0.9).
+  const diceLevel = shownGlow - DICE_DIM_ABOVE_TWO * THREE.MathUtils.smoothstep(shownGlow, 0.2, 0.4);
+  GLOW_LEVEL.value = diceLevel;
   diceGlowLevel = shownGlow;
-  if (shopProgress > .5) {
-    // 방이 어두워지는 만큼 바깥 조명·반사도 줄여, 패널이 속의 빛으로만 빛나고 눈이 또렷이 보이게 합니다.
-    const room = 1 - 0.75 * shownGlow;
-    sun.intensity = 0.9 * room;
-    fillLight.intensity = 0.75 * room;
-    ACRYLIC.envMapIntensity = 0.45 * room;
-    for (const material of steelMaterials) material.envMapIntensity = 1.6 * (1 - 0.5 * shownGlow);
-  }
-  ACRYLIC.emissiveIntensity = 1 + 0.75 * shownGlow;
-  if (shopProgress > .5) innerLight.intensity = 2.2 + 3 * shownGlow;
+  // 바깥 조명(위·왼쪽 앞에서 비추는 빛)은 단계와 상관없이 그대로 두어, 윗면·왼쪽 앞면은 늘 밝고 오른쪽 옆면만 그늘을 받습니다.
+  // 단계가 오르면 속의 빛만 더해져 주사위가 점점 밝아집니다.
+  // 6에서도 숫자 눈이 하얗게 묻히지 않도록, 패널 빛은 1의 1.5배까지만 오릅니다(눈은 따로 더 밝아짐).
+  ACRYLIC.emissiveIntensity = 1 + 0.5 * diceLevel;
+  if (shopProgress > .5) innerLight.intensity = 2.2 + 3 * diceLevel;
 }
 
 const raycaster = new THREE.Raycaster(), pointerNdc = new THREE.Vector2();

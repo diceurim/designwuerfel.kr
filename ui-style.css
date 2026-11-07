@@ -163,7 +163,7 @@ body.is-shop .face-buttons, body.is-shop .instruction, body.is-shop .memo, body.
 
 /* Shop 화면 아래쪽 조작 안내: 작고 옅게 둡니다. */
 /* 글꼴·굵기는 메모 화면의 안내 문구와 같은 명조체 + 0.5px 획입니다. */
-.shop-hint { display: none; position: fixed; z-index: 3; left: 50%; bottom: 6%; transform: translateX(-50%); margin: 0; width: max-content; max-width: 90vw; text-align: center; color: #9a9a9a; letter-spacing: normal; -webkit-text-stroke: 0; pointer-events: none; }
+.shop-hint { display: none; position: fixed; z-index: 3; left: 50%; bottom: 6%; transform: translateX(-50%); margin: 0; width: max-content; max-width: 90vw; text-align: center; color: var(--shop-hint-ink, #9a9a9a); transition: color .4s; letter-spacing: normal; -webkit-text-stroke: 0; pointer-events: none; }
 body.is-shop .shop-hint { display: block; }
 
 /* Shop 한국어 안내 크기 */
