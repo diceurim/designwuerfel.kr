@@ -224,8 +224,8 @@ function render() {
     mixer.setTime(clipDuration - 1e-4);
     dice.quaternion.copy(faceQuaternion);
   }
-  updateShop();
   // 화면 크기에 맞춘 크기와, 기록 화면에서 왼쪽 아래로 옮겨 가는 이동을 p5와 똑같이 맞춥니다.
+  // (Shop의 화면 경계 판정이 이번 프레임의 화면 크기를 쓰도록 updateShop보다 먼저 맞춥니다.)
   const scale = diceViewScale;
   const shiftX = diceScreenShift[0] / scale, shiftY = (diceScreenShift[1] + 5) / scale;
   camera.left = -innerWidth / (2 * scale) - shiftX;
@@ -233,6 +233,8 @@ function render() {
   camera.top = innerHeight / (2 * scale) + shiftY;
   camera.bottom = -innerHeight / (2 * scale) + shiftY;
   camera.updateProjectionMatrix();
+  camera.updateMatrixWorld();
+  updateShop();
   // 휴대폰에서 구석으로 내려간 작은 주사위는 스크롤되는 내용에 가려지지 않게 화면 위층에 그립니다.
   renderer.domElement.style.zIndex = innerWidth <= 600 && !lollingWorld && writingViewProgress > .5 ? '6' : '1';
   renderer.render(scene, camera);
@@ -242,11 +244,10 @@ function render() {
 // 이 주사위는 윗면 숫자가 1 → 6으로 커질수록 속의 조명이 밝아지는 조명 주사위입니다.
 // - 주사위를 잡고 상하좌우로 밀면(또는 방향키) 그쪽으로 한 칸 넘어가며 윗면 숫자와 밝기가 바뀝니다.
 // - 위로 힘껏 들어 올렸다가 놓으면 던져집니다(클릭·스페이스바로는 던지지 않음).
-// - 바닥은 가로 5칸 × 앞뒤 6칸(뒤로 2칸, 앞으로 3칸)의 제한된 영역이고, 그 밖으로는 보이지 않는 벽에 막혀 살짝 들썩이다 제자리로 돌아옵니다.
+// - 바닥에 벽이 없습니다. 화면 밖으로 굴러 나가면 같은 줄의 반대쪽 화면 밖으로 이어져, 한 칸 굴러 다시 들어옵니다.
 // - 뒤로 갈수록 원근감으로 조금(최대 12%) 작아지고, 앞(화면 아래)으로 다가올수록 더 크게(최대 30%) 커집니다.
 // - 윗면 숫자마다 정해진 5가지 멈춤 각도 중 하나가 있고(같은 숫자는 늘 같은 각도), 넘어가는 동안 그 각도로 이어서 돌아갑니다.
 const HALF = DICE_SIZE / 2;
-const GRID = { minX: -2, maxX: 2, minZ: -2, maxZ: 3 };   // 칸 단위(한 칸 = 주사위 한 변). 앞(+Z, 화면 아래)으로만 넓게
 // 멈춘 주사위가 돌아 앉는 각도(°): 윗면 1·2·3·4·5는 차례로, 6은 다시 첫 각도부터 반복합니다.
 const REST_YAWS = [0, 16, -12, 28, -22].map(degree => degree * Math.PI / 180);
 const SETTLE_TIME = 110;                                 // 돌아 앉는 빠르기(ms, 작을수록 빠름)
@@ -278,18 +279,122 @@ function currentTopFace(q = dice.getWorldQuaternion(new THREE.Quaternion())) {
 // 화면에서 민 방향을 바닥의 네 방향 중 가장 가까운 쪽으로 바꿔 한 칸 넘깁니다.
 function tipScreen(sx, sy) {
   const w = SCREEN_RIGHT.clone().multiplyScalar(sx).add(SCREEN_BACK.clone().multiplyScalar(-sy));
-  const dir = Math.abs(w.x) > Math.abs(w.z) ? [Math.sign(w.x), 0] : [0, Math.sign(w.z)];
-  const next = [shopCell[0] + dir[0], shopCell[1] + dir[1]];
-  // 휴대폰처럼 좁은 화면에서는 좌우를 한 칸씩만 열어 주사위가 화면 밖으로 나가지 않게 합니다.
-  const sideLimit = innerWidth <= 600 ? 1 : GRID.maxX;
-  const bump = next[0] < -sideLimit || next[0] > sideLimit || next[1] < GRID.minZ || next[1] > GRID.maxZ;
+  startTip(Math.abs(w.x) > Math.abs(w.z) ? [Math.sign(w.x), 0] : [0, Math.sign(w.z)]);
+}
+
+// ── 화면 경계 판정: 모두 사용자가 보는 브라우저 화면의 2D 좌표(px)로 계산합니다 ──
+// 주사위의 실제 렌더링 크기(원근감에 따른 depthScale 포함)를 그대로 써서 판정만 하고, 그리는 크기는 바꾸지 않습니다.
+// 칸 좌표는 정수가 아니어도 됩니다(점대칭 위치에 정확히 놓기 위해).
+
+const toScreen = v => { const p = v.clone().project(camera); return { x: (p.x + 1) / 2 * innerWidth, y: (1 - p.y) / 2 * innerHeight }; };
+
+// 칸에 놓인 주사위 중심의 화면 좌표와 화면상의 한 변 길이
+function cellScreen(cell) {
+  const z = cell[1] * DICE_SIZE, scale = depthScale(z);
+  const center = toScreen(new THREE.Vector3(cell[0] * DICE_SIZE, HALF * scale, z));
+  return { ...center, size: DICE_SIZE * diceViewScale * scale };
+}
+// 칸에 놓인 주사위가 화면에서 차지하는 사각형(정육면체 꼭짓점 8개를 투영)
+function cellRect(cell) {
+  const z = cell[1] * DICE_SIZE, scale = depthScale(z), half = HALF * scale;
+  const rect = { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity };
+  for (const dx of [-1, 1]) for (const dy of [0, 2]) for (const dz of [-1, 1]) {
+    const p = toScreen(new THREE.Vector3(cell[0] * DICE_SIZE + dx * half, dy * half, z + dz * half));
+    rect.left = Math.min(rect.left, p.x); rect.right = Math.max(rect.right, p.x);
+    rect.top = Math.min(rect.top, p.y); rect.bottom = Math.max(rect.bottom, p.y);
+  }
+  return rect;
+}
+// 화면 테두리까지의 여유(px). 음수면 그만큼 화면 밖으로 삐져나감
+function sideGaps(cell) {
+  const r = cellRect(cell);
+  return { left: r.left, right: innerWidth - r.right, top: r.top, bottom: innerHeight - r.bottom };
+}
+const NEAR_EDGE = 0.4;      // 테두리까지 여유가 주사위 한 변의 0.4배보다 작으면 '가장자리'(잡기 어려운 자리)
+const INSIDE_PAD = 8;       // 복귀가 끝났을 때 테두리에서 최소한 떨어져 있을 거리(px)
+function cellOffscreen(cell) {
+  const r = cellRect(cell);
+  return r.right < 0 || r.left > innerWidth || r.bottom < 0 || r.top > innerHeight;
+}
+const cellFullyInside = cell => Object.values(sideGaps(cell)).every(gap => gap >= INSIDE_PAD);
+const minGap = cell => Math.min(...Object.values(sideGaps(cell)));
+function nearSide(cell, side) { return sideGaps(cell)[side] < NEAR_EDGE * cellScreen(cell).size; }
+const cellNearEdge = cell => ['left', 'right', 'top', 'bottom'].some(side => nearSide(cell, side));
+
+// 이 방향으로 굴러가면 가까이 있는 테두리 쪽으로 다가가는지
+function headingToNearEdge(cell, dir) {
+  const p = cellScreen(cell), q = cellScreen([cell[0] + dir[0], cell[1] + dir[1]]);
+  const dx = q.x - p.x, dy = q.y - p.y;
+  return (nearSide(cell, 'left') && dx < 0) || (nearSide(cell, 'right') && dx > 0)
+    || (nearSide(cell, 'top') && dy < 0) || (nearSide(cell, 'bottom') && dy > 0);
+}
+
+// 화면 좌표(px)에 주사위 중심이 보이도록 하는 칸 좌표(바닥 위, 원근 크기까지 맞춰 몇 번 되풀이해 수렴)
+function cellAtScreen(x, y) {
+  const ndc = [x / innerWidth * 2 - 1, 1 - y / innerHeight * 2];
+  let scale = 1, hit = null;
+  for (let i = 0; i < 4; i++) {
+    const near = new THREE.Vector3(ndc[0], ndc[1], -1).unproject(camera);
+    const far = new THREE.Vector3(ndc[0], ndc[1], 1).unproject(camera);
+    hit = near.lerp(far, (HALF * scale - near.y) / (far.y - near.y));
+    scale = depthScale(hit.z);
+  }
+  return [hit.x / DICE_SIZE, hit.z / DICE_SIZE];
+}
+// 화면 중심에 대한 점대칭 위치: (x, y) → (W − x, H − y)
+const mirrorCell = cell => { const p = cellScreen(cell); return cellAtScreen(innerWidth - p.x, innerHeight - p.y); };
+
+// 복귀할 때 들어오며 몇 칸 굴러야 하는지 정합니다.
+// ① 모든 테두리에서 가장자리 범위(잡기 어려운 자리) 밖인 첫 칸 → ② 없으면 주사위 전체가 화면 안인 첫 칸
+// → ③ 그것도 없으면 가장 안쪽에 들어오는 칸.
+function entrySteps(cell, dir) {
+  let inside = 0, best = 1, bestGap = -Infinity;
+  for (let i = 1; i <= 40; i++) {
+    const at = [cell[0] + dir[0] * i, cell[1] + dir[1] * i];
+    if (cellFullyInside(at)) {
+      if (!cellNearEdge(at)) return i;
+      if (!inside) inside = i;
+    } else if (inside) break;   // 화면 안을 지나 다시 밖으로 나가는 구간은 보지 않음
+    const gap = minGap(at);
+    if (gap > bestGap) { bestGap = gap; best = i; }
+  }
+  return inside || best;
+}
+
+// mode: 'leaving'(가장자리에서 저절로 화면 밖으로), 'entering'(반대쪽에서 저절로 들어오는 중), 없으면 손으로 넘김
+function startTip(dir, bump = false, mode = null, remaining = 0) {
   const rootQuaternion = root.getWorldQuaternion(new THREE.Quaternion());
   const from = rootQuaternion.multiply(faceQuaternion);
   // 넘어간 뒤 위로 올 숫자를 미리 구해, 넘어가는 동안 그 숫자의 멈춤 각도로 서서히 돌아가게 합니다.
   const axis = UP_AXIS.clone().cross(new THREE.Vector3(dir[0], 0, dir[1]));
   const landed = new THREE.Quaternion().setFromAxisAngle(axis, Math.PI / 2).multiply(from);
   const yawTo = bump ? shopYaw : REST_YAWS[(currentTopFace(landed) - 1) % REST_YAWS.length];
-  tipState = { start: performance.now(), dir, bump, yawFrom: shopYaw, yawTo, from };
+  tipState = { start: performance.now(), dir, bump, mode, remaining, yawFrom: shopYaw, yawTo, from };
+}
+
+// 복귀가 끝나면 조작 상태를 모두 정리해, 보이는 자리에서 바로 다시 잡거나 굴릴 수 있게 합니다.
+function finishEntering() {
+  tipState = null; drag = null; heldLift = 0;
+  document.body.style.cursor = '';
+}
+
+// 창 크기가 바뀌어 멈춰 있던 주사위가 화면 밖이나 테두리에 걸리게 되면, 화면 중심 쪽으로 가장 가까운 '다 보이는' 자리로 옮깁니다.
+let lastShopSize = '';
+function keepInsideAfterResize() {
+  const size = innerWidth + 'x' + innerHeight;
+  if (size === lastShopSize) return;
+  lastShopSize = size;
+  if (tipState || throwState || drag || cellFullyInside(shopCell)) return;
+  // 테두리 가장자리 범위까지 벗어난 자리를 먼저 찾고, 없으면 전체가 보이는 첫 자리로 옮깁니다.
+  const center = cellAtScreen(innerWidth / 2, innerHeight / 2);
+  let firstInside = null;
+  for (let i = 1; i <= 40; i++) {
+    const t = i / 40, at = [shopCell[0] + (center[0] - shopCell[0]) * t, shopCell[1] + (center[1] - shopCell[1]) * t];
+    if (!cellFullyInside(at)) continue;
+    if (!cellNearEdge(at)) { shopCell = at; return; }
+    firstInside = firstInside || at;
+  }
+  shopCell = firstInside || center;
 }
 
 function updateShop() {
@@ -307,6 +412,7 @@ function updateShop() {
     return;
   }
   wasShop = true;
+  keepInsideAfterResize();
   const rootQuaternion = root.getWorldQuaternion(new THREE.Quaternion());
   const center = new THREE.Vector3(shopCell[0] * DICE_SIZE, HALF, shopCell[1] * DICE_SIZE);
   let scale = depthScale(center.z);
@@ -329,11 +435,32 @@ function updateShop() {
         shopCell = [shopCell[0] + tipState.dir[0], shopCell[1] + tipState.dir[1]];
         faceQuaternion = rootQuaternion.clone().invert().multiply(new THREE.Quaternion().setFromAxisAngle(axis, Math.PI / 2).multiply(tipState.from));
       }
-      // 면이 바닥에 닿는 순간 '탁'(벽에 막혀 되돌아올 때는 작게)
+      // 면이 바닥에 닿는 순간 '탁'
       playTipImpact(tipState.bump ? 0.5 : 1);
       shopYaw = tipState.yawTo;
       dice.quaternion.copy(rootQuaternion.clone().invert().multiply(yawAround(shopYaw)).multiply(rootQuaternion).multiply(faceQuaternion));
+      const finished = tipState;
       tipState = null;
+      // 1) 손으로 테두리 쪽으로 넘겨 가장자리(잡기 어려운 자리)에 닿으면, 같은 방향으로 저절로 굴러 나갑니다.
+      // 2) 나가는 중에는 주사위도, 화면 중심 점대칭 자리의 주사위도 모두 화면 밖일 때까지 굴러갑니다.
+      //    그다음 점대칭 자리 (W − x, H − y)로 옮겨, 같은 방향으로 굴러 들어옵니다(나간 쪽이 앞이면 크게, 들어오는 쪽이 뒤면 작게 보이는 것이 정상).
+      // 3) 들어오는 중에는 미리 정한 칸 수만큼만 굴러, 주사위 전체가 화면 안에 들어온 자리에서 멈춥니다.
+      //    이 자리에서는 다시 나가기 판정을 하지 않습니다(사용자가 또 테두리 쪽으로 밀 때만).
+      if (!finished.bump) {
+        if (finished.mode === 'entering') {
+          if (finished.remaining > 1) startTip(finished.dir, false, 'entering', finished.remaining - 1);
+          else finishEntering();
+        } else if (finished.mode === 'leaving') {
+          if (cellOffscreen(shopCell) && cellOffscreen(mirrorCell(shopCell))) {
+            shopCell = mirrorCell(shopCell);
+            startTip(finished.dir, false, 'entering', entrySteps(shopCell, finished.dir));
+          } else {
+            startTip(finished.dir, false, 'leaving');
+          }
+        } else if (cellNearEdge(shopCell) && headingToNearEdge(shopCell, finished.dir)) {
+          startTip(finished.dir, false, 'leaving');
+        }
+      }
     }
   } else if (throwState) {
     shopYaw = throwYaw;

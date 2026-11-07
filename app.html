@@ -20,13 +20,13 @@
     }
     /* #121212 배경과 screen 합성 시 기본 버튼 색상은 #6d6d6d입니다. */
     .instruction[hidden] { display: none; }
-    .instruction p { margin: 0; }
-    .instruction .ko {
+    .instruction p, .shop-hint p { margin: 0; letter-spacing: normal; }
+    .instruction .ko, .shop-hint .ko {
       font-family: "AppleMyungjo", "Batang", "Noto Serif KR", serif;
       font-size: 14pt; line-height: 16.8pt; font-weight: 400;
       -webkit-text-stroke: 0.5px currentColor;
     }
-    .instruction .de {
+    .instruction .de, .shop-hint .de {
       margin-top: 12px; font-family: "Apple SD Gothic Neo", sans-serif;
       font-size: 12pt; line-height: 14.4pt; font-weight: 400;
     }
@@ -63,8 +63,8 @@
       .face-buttons.right { right: 16px; bottom: 24px; grid-template-columns: repeat(3, var(--button-size)); }
       .face-button[data-face] { grid-column: auto; grid-row: auto; }
       .instruction { top: calc(20px + var(--button-size) + 40px); width: 90vw; }
-      .instruction .ko { font-size: 12pt; line-height: 14.4pt; }
-      .instruction .de { font-size: 10pt; line-height: 12pt; }
+      .instruction .ko, .shop-hint .ko { font-size: 12pt; line-height: 14.4pt; }
+      .instruction .de, .shop-hint .de { font-size: 10pt; line-height: 12pt; }
     }
     .memo {
       position: fixed;
@@ -119,10 +119,10 @@
 <link rel="stylesheet" href="lolling.css?v=5">
 <link rel="stylesheet" href="experiment.css?v=14">
 <script src="experiment.js?v=5"></script>
-<link rel="stylesheet" href="ui-style.css?v=15">
+<link rel="stylesheet" href="ui-style.css?v=shop-type-2">
 <!-- 3D 주사위: Blender에서 만든 GLB 모델과 굴림 애니메이션을 three.js로 그립니다. -->
 <script type="importmap">{ "imports": { "three": "./lib/three/three.module.min.js", "three/addons/": "./lib/three/addons/" } }</script>
-<script type="module" src="dice3d.js?v=29"></script>
+<script type="module" src="dice3d.js?v=42"></script>
 </head>
 <body>
   <!-- 화면 이름표: 열린 화면에 따라 왼쪽 위 구석에 표시됩니다(시작 화면에서는 숨김). -->
@@ -137,7 +137,10 @@
   <!-- 화면 전환: 시작 화면 ↔ Shop(흰 배경의 실물 주사위) -->
   <button id="shopButton" class="glass-button mode-shop" type="button">Shop</button>
   <button id="memoButton" class="glass-button mode-memo" type="button">Memo</button>
-  <p class="shop-hint" aria-hidden="true">주사위를 잡고 밀어서 굴려보세요 · 위로 힘껏 들어 올렸다 놓으면 던져져요</p>
+  <section class="shop-hint" aria-label="Shop 사용 안내">
+    <p class="ko" lang="ko">주사위를 잡고 밀어서 굴려보세요.<br>위로 힘껏 들어 올렸다 놓으면 던져져요.</p>
+    <p class="de" lang="de">Greif den Würfel und schieb ihn an, um ihn zu rollen.<br>Zieh ihn kräftig nach oben und lass ihn los, um ihn zu werfen.</p>
+  </section>
   <nav class="face-buttons left" aria-label="W ü r">
     <button class="face-button" data-face="1" type="button" aria-label="W"><img src="assets/face-1.png" alt=""></button>
     <button class="face-button" data-face="2" type="button" aria-label="ü"><img src="assets/face-2.png" alt=""></button>
