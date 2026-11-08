@@ -34,13 +34,21 @@ let shopProgress = 0;
 let diceDepthScale = 1;
 // Shop 주사위의 밝기 단계(0: 윗면 1 → 1: 윗면 6). 밝을수록 방이 어두워지고 바닥에 따뜻한 빛이 번집니다(dice3d.js가 정합니다).
 let diceGlowLevel = 0;
+// 화면에 보이는 주사위 중심(CSS px, 왼쪽 위 기준). dice3d.js가 매 프레임 넣어 줍니다. 없으면 화면 가운데.
+let diceScreenCenter = null;
+// 빛이 닿는 반지름(화면 짧은 변 기준 비율): 윗면 1 → 6
+const POOL_RADIUS_MIN = 0.22, POOL_RADIUS_MAX = 0.95;
+// 빛 웅덩이 가운데 밝기(어두운 배경색 0 → 밝은 색 1): 윗면 1일 때 값. 6에서는 1
+const POOL_PEAK_MIN = 0.35;
+// 윗면 1은 조명이 꺼진 상태(turn off). 단계 0(윗면 1) → 1, 단계 0.2(윗면 2) 이상 → 0으로 부드럽게 바뀝니다.
+const lightOff = level => 1 - Math.min(1, Math.max(0, level / 0.2)) ** 2 * (3 - 2 * Math.min(1, Math.max(0, level / 0.2)));
 let lastHintInk = '';
 // Shop 방의 색감(고정)과 주사위 둘레 바닥 빛의 색감(고정). 밝기 단계에 따라 명도만 바뀝니다.
 const SHOP_ROOM_HUE = 222, SHOP_ROOM_SAT = 8;
 const SHOP_GLOW_HUE = 34, SHOP_GLOW_SAT = 45;
-// Shop 바닥(=배경) 셰이더: 주사위 조명이 밝을수록 방 전체가 밝아집니다(윗면 1 = 어두운 방, 6 = 하얀 방).
-// 빛은 화면 가운데의 둥근 사각형 모양으로 퍼지고, 네 모서리로 갈수록 부드럽게 어두워집니다.
-// 주사위 둘레 바닥에는 늘 같은 따뜻한 빛이 밝기 단계만큼 번집니다(바닥 위 거리로 계산해 원근감이 그대로 따라옵니다).
+// Shop 바닥(=배경) 셰이더: 방은 기본 배경색(어두운 푸른 회색)이고, 주사위 둘레에만 빛이 퍼집니다.
+// 빛의 중심은 화면에 보이는 주사위 중심을 따라가고, 윗면 숫자가 클수록 빛이 닿는 범위가 넓어집니다.
+// 주사위 바로 둘레 바닥에는 늘 같은 따뜻한 빛이 밝기 단계만큼 번집니다(바닥 위 거리로 계산해 원근감이 그대로 따라옵니다).
 let floorShader;
 const FLOOR_SIZE = 5000;
 const FLOOR_VERT = `
@@ -56,27 +64,22 @@ const FLOOR_VERT = `
 const FLOOR_FRAG = `
   precision highp float;
   varying vec2 vFloor;
-  uniform vec2 uResolution;
-  uniform float uLevel, uShop, uFloorSize, uSpillRadius;
+  uniform vec2 uResolution, uPoolCenter;
+  uniform float uLevel, uShop, uFloorSize, uSpillRadius, uPoolRadius, uOff;
   uniform vec2 uDice;
   uniform vec3 uMemo, uDark, uLight, uWarm;
-  float roundedBox(vec2 p, vec2 halfSize, float radius) {
-    vec2 q = abs(p) - halfSize + radius;
-    return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
-  }
   void main() {
-    vec2 c = uResolution * 0.5, p = gl_FragCoord.xy - c;
-    float m = min(uResolution.x, uResolution.y);
-    // 둥근 사각형 빛: 화면보다 조금 작은 사각형, 모서리 반지름은 짧은 변의 22%, 경계는 18% 폭으로 부드럽게
-    float d = roundedBox(p, c - m * 0.1, m * 0.22);
-    float shape = 1.0 - smoothstep(-m * 0.12, m * 0.1, d);
-    // 가운데 밝기는 단계에 비례해 오르고, 모서리 어둠은 단계가 오를수록 옅어져 6에서는 방 전체가 하얘집니다.
-    float centerLight = mix(0.16, 1.0, uLevel);
-    float cornerLight = uLevel * uLevel;
-    vec3 room = mix(uDark, uLight, mix(cornerLight, centerLight, shape));
-    // 주사위 둘레의 따뜻한 빛
-    float dist = length(vFloor * uFloorSize - uDice) / uSpillRadius;
-    room = mix(room, uWarm, exp(-dist * dist) * (0.15 + 0.45 * uLevel));
+    // 주사위 둘레의 빛 웅덩이: 화면에 보이는 주사위 중심에서 퍼지고, 반지름 밖으로 갈수록 부드럽게 흐려져 기본 배경색으로 이어집니다.
+    float dist = length(gl_FragCoord.xy - uPoolCenter) / uPoolRadius;
+    float pool = 1.0 - smoothstep(0.15, 1.0, dist);
+    // 빛의 세기도 단계에 따라 오릅니다: 윗면 1은 가운데가 은은하게(POOL_PEAK_MIN), 6은 가장 밝게.
+    float peak = mix(${POOL_PEAK_MIN.toFixed(3)}, 1.0, uLevel);
+    // 윗면 1(uOff = 1)은 조명이 꺼진 상태: 빛 웅덩이·따뜻한 빛 없이 흰 방입니다.
+    vec3 room = mix(uDark, uLight, pool * pool * (3.0 - 2.0 * pool) * peak * (1.0 - uOff));
+    // 주사위 바로 둘레의 따뜻한 빛(바닥 위 거리로 계산해 원근감을 따름)
+    float near = length(vFloor * uFloorSize - uDice) / uSpillRadius;
+    room = mix(room, uWarm, exp(-near * near) * (0.15 + 0.45 * uLevel) * (1.0 - uOff));
+    room = mix(room, uLight, uOff);
     gl_FragColor = vec4(mix(uMemo, room, uShop), 1.0);
   }`;
 const colorVec = c => [red(c) / 255, green(c) / 255, blue(c) / 255];
@@ -274,14 +277,21 @@ function draw() {
   updateThrow();
   shopProgress = lerp(shopProgress, shopMode ? 1 : 0, 1 - Math.exp(-Math.min(deltaTime, 100) / 120));
   if (Math.abs(shopProgress - (shopMode ? 1 : 0)) < .001) shopProgress = shopMode ? 1 : 0;
-  // Shop 화면의 방: 색감은 푸른 기가 살짝 도는 회색으로 고정하고 명도만 바뀝니다. 윗면 1은 어두운 방(8%), 6은 하얀 방(97%).
-  // 화면 안쪽의 실제 색은 아래 바닥 셰이더가 정하고, 여기 배경색은 바닥이 닿지 않는 곳(모서리 쪽)과 같은 색입니다.
+  // Shop 화면의 방: 기본 배경색은 푸른 기가 살짝 도는 어두운 회색(8%)이고, 빛 웅덩이 가운데는 밝은 색(97%)입니다.
+  // 화면 안쪽의 실제 색은 아래 바닥 셰이더가 정하고, 여기 배경색은 바닥이 닿지 않는 곳과 같은 기본 배경색입니다.
   const roomDark = color(`hsl(${SHOP_ROOM_HUE}, ${SHOP_ROOM_SAT}%, 8%)`);
   const roomLight = color(`hsl(${SHOP_ROOM_HUE}, ${SHOP_ROOM_SAT}%, 97%)`);
-  const sceneColor = lerpColor(color('#121212'), lerpColor(roomDark, roomLight, diceGlowLevel * diceGlowLevel), shopProgress);
+  const off = lightOff(diceGlowLevel);
+  const sceneColor = lerpColor(color('#121212'), lerpColor(roomDark, roomLight, off), shopProgress);
   background(sceneColor);
-  // Shop 안내 글자색: 방이 밝아지면 진한 회색, 어두우면 밝은 회색으로 바꿔 어느 단계에서도 읽히게 합니다.
-  const hintInk = diceGlowLevel > 0.55 ? '#6f7178' : '#b4b6bc';
+  // 빛 웅덩이: 중심은 주사위를 따라가고, 반지름은 밝기 단계(윗면 숫자)에 따라 넓어집니다(화면 밖에서는 단계가 멈춰 있음).
+  const poolCenter = diceScreenCenter || [width / 2, height / 2];
+  const poolRadius = Math.min(width, height) * lerp(POOL_RADIUS_MIN, POOL_RADIUS_MAX, diceGlowLevel);
+  // Shop 안내 글자색: 안내 문구 자리가 빛 안쪽이면 진한 회색, 어두운 곳이면 밝은 회색으로 바꿔 늘 읽히게 합니다.
+  const hint = document.querySelector('.shop-hint');
+  const hintBox = hint && hint.offsetParent ? hint.getBoundingClientRect() : null;
+  const hintLit = hintBox && Math.hypot(hintBox.left + hintBox.width / 2 - poolCenter[0], hintBox.top + hintBox.height / 2 - poolCenter[1]) < poolRadius * 0.55;
+  const hintInk = hintLit || off > 0.5 ? '#6f7178' : '#b4b6bc';
   if (hintInk !== lastHintInk) { lastHintInk = hintInk; document.body.style.setProperty('--shop-hint-ink', hintInk); }
   positionMemo();
   // 카메라 시선을 정지한 주사위 중심에 맞춰 모든 화면 크기에서 중앙에 배치합니다.
@@ -313,7 +323,11 @@ function draw() {
   if (shopProgress > 0) {
     shader(floorShader);
     floorShader.setUniform('uResolution', [width * pixelDensity(), height * pixelDensity()]);
+    // gl_FragCoord는 장치 픽셀·아래쪽 기준이므로 맞춰 바꿉니다.
+    floorShader.setUniform('uPoolCenter', [poolCenter[0] * pixelDensity(), (height - poolCenter[1]) * pixelDensity()]);
+    floorShader.setUniform('uPoolRadius', poolRadius * pixelDensity());
     floorShader.setUniform('uLevel', diceGlowLevel);
+    floorShader.setUniform('uOff', off);
     floorShader.setUniform('uShop', shopProgress);
     floorShader.setUniform('uFloorSize', FLOOR_SIZE);
     floorShader.setUniform('uDice', [positionX, positionZ]);

@@ -60,8 +60,22 @@ const ACRYLIC = new THREE.MeshPhysicalMaterial({
 const GLOW_LEVEL = { value: 0 };
 // 윗면 3~6에서 주사위 밝기만 낮추는 양(단계 단위). 배경 밝기에는 영향 없음
 const DICE_DIM_ABOVE_TWO = 0.1;
+// 윗면 1(조명 꺼짐) 모습의 정도: 1이면 꺼진 제품 사진처럼 미색 아이보리 패널 + 새틴 금속, 윗면 2 이상은 0.
+const OFF_LOOK = { value: 0 };
+const OFF_IVORY = [0.88, 0.85, 0.78];   // 꺼졌을 때 패널 바탕색(미색)
+const OFF_GLOW = 0.22;                  // 꺼졌을 때 남기는 패널 빛(밝기 유지용, 색은 중성 미색)
+const OFF_STEEL_ROUGHNESS = 0.62, OFF_STEEL_SHINE = 1.0;   // 꺼졌을 때 새틴 금속: 거칠기 ↑, 반사 ↓
+// 꺼졌을 때 패널의 반투명 아크릴 느낌(서리 낀 유리처럼). 0이면 지금처럼 불투명.
+//  milk: 우윳빛으로 밝고 부드럽게, rim: 얇은 가장자리로 빛이 비쳐 밝아짐, seeThrough: 중앙의 약한 비침(0~1), 가장자리는 더 불투명
+// B-1: 밝은 중앙, 옅은 회색 가장자리, 약한 비침. 윗면 1에서만 적용.
+const OFF_FROST = { milk: 1, rim: 0.06, seeThrough: 0.065 };
+const FROST_MILK = { value: 0 }, FROST_RIM = { value: 0 }, FROST_SEE = { value: 0 };
 ACRYLIC.onBeforeCompile = shader => {
   shader.uniforms.uGlowLevel = GLOW_LEVEL;
+  shader.uniforms.uOff = OFF_LOOK;
+  shader.uniforms.uFrostMilk = FROST_MILK;
+  shader.uniforms.uFrostRim = FROST_RIM;
+  shader.uniforms.uFrostSee = FROST_SEE;
   shader.vertexShader = shader.vertexShader
     .replace('#include <common>', '#include <common>\nvarying vec3 vObjectNormal;\nvarying vec3 vObjectPosition;')
     .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nvObjectNormal = objectNormal;\nvObjectPosition = position;');
@@ -70,6 +84,8 @@ ACRYLIC.onBeforeCompile = shader => {
       varying vec3 vObjectNormal;
       varying vec3 vObjectPosition;
       uniform float uGlowLevel;
+      uniform float uOff;
+      uniform float uFrostMilk, uFrostRim, uFrostSee;
       float acrylicHash(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }`)
     .replace('#include <color_fragment>', `#include <color_fragment>
       vec3 axis = abs(normalize(vObjectNormal));
@@ -82,9 +98,18 @@ ACRYLIC.onBeforeCompile = shader => {
       float edge = clamp(length(across) / ${PANEL_RADIUS}, 0.0, 1.0);
       float grain = acrylicHash(floor(vObjectPosition * 6000.0));
       diffuseColor.rgb *= 0.92 + 0.14 * grain;
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.9, 0.74, 0.58), pit * 0.75);
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.9, 0.74, 0.58), pit * 0.75 * (1.0 - uOff));
       // 밝아질수록(투과도가 오를수록) 가장자리가 덜 가라앉습니다.
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.78, 0.69, 0.6), smoothstep(0.35, 1.0, edge) * 0.55 * (1.0 - 0.6 * uGlowLevel));
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.78, 0.69, 0.6), smoothstep(0.35, 1.0, edge) * 0.55 * (1.0 - 0.6 * uGlowLevel) * (1.0 - 0.7 * uOff));
+      // 윗면 1(꺼짐): 미색 아이보리 바탕, 눈은 살구빛 대신 살짝 그늘진 같은 색
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(${OFF_IVORY.join(", ")}) * (0.97 + 0.06 * grain) * (1.0 - 0.1 * pit), uOff);
+      // B-1: 중앙은 은은한 미색, 가장자리는 옅은 웜그레이으로 부드럽게 가라앉음.
+      float frostEdge = smoothstep(0.38, 1.0, edge);
+      vec3 frostColor = mix(vec3(0.96, 0.935, 0.89), vec3(0.85, 0.825, 0.78), frostEdge);
+      frostColor *= (0.992 + 0.016 * grain) * (1.0 - 0.055 * pit);
+      diffuseColor.rgb = mix(diffuseColor.rgb, frostColor, uFrostMilk * uOff);
+      // 두꺼운 가장자리는 중앙보다 덜 비침. 내부 구조가 선명하게 드러나지 않도록 제한.
+      diffuseColor.a = 1.0 - uFrostSee * uOff * (1.0 - 0.55 * frostEdge);
 `)
     .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
       float glow = (0.2 + 0.12 * uGlowLevel) + pow(1.0 - edge, 1.5 - 0.4 * uGlowLevel) * (0.32 + 0.2 * uGlowLevel) + smoothstep(0.9, 1.0, edge) * (0.18 + 0.1 * uGlowLevel);
@@ -92,7 +117,14 @@ ACRYLIC.onBeforeCompile = shader => {
       totalEmissiveRadiance *= glow * (0.92 + 0.12 * grain) * mix(vec3(1.0), vec3(1.0, 0.84, 0.66), uGlowLevel);
       totalEmissiveRadiance += vec3(0.32, 0.2, 0.1) * pit * (1.0 - edge * 0.5) * (1.0 + 0.8 * uGlowLevel);
       // 밝을 때 눈(얇은 곳)은 바탕보다 한층 밝게 비쳐 숫자가 잘 보입니다.
-      totalEmissiveRadiance += vec3(0.42, 0.34, 0.25) * pit * uGlowLevel;`);
+      totalEmissiveRadiance += vec3(0.42, 0.34, 0.25) * pit * uGlowLevel;
+      // 윗면 1(꺼짐): 빛나는 느낌 없이 고르게 밝은 미색 패널(눈의 빛은 끄고, 패널 빛은 중성 미색으로 약하게)
+      totalEmissiveRadiance = mix(totalEmissiveRadiance, vec3(${OFF_IVORY.join(", ")}) * ${OFF_GLOW.toFixed(3)} * (0.75 + 0.25 * (1.0 - edge)) * (1.0 - 0.6 * pit), uOff);
+      // B-1의 미색 산란광: 패널 색조만 따뜻하게, 산란광 세기는 유지.
+      vec3 frostScatter = vec3(0.96, 0.935, 0.89) * ${OFF_GLOW.toFixed(3)} * (1.0 - 0.12 * frostEdge) * (1.0 - 0.35 * pit);
+      totalEmissiveRadiance = mix(totalEmissiveRadiance, frostScatter, uFrostMilk * uOff);
+      // 얇은 가장자리로 빛이 비쳐 은은하게 밝아짐(꺼졌을 때만)
+      totalEmissiveRadiance += vec3(1.0, 0.98, 0.95) * uFrostRim * uOff * smoothstep(0.55, 1.0, edge) * 0.35;`);
 };
 // 아이보리 면은 흰 툰 재질, 금속 테두리는 먹색으로 바꾸고, 가장 바깥 모양을 조금 키운 뒷면으로 흰 외곽선을 그립니다.
 // Shop 화면에서 되돌릴 수 있도록 원래 재질과 툰 재질을 둘 다 기억해 둡니다.
@@ -426,6 +458,7 @@ function updateShop() {
     if (wasShop) {
       wasShop = false; shopCell = [0, 0]; tipState = null; drag = null; heldLift = 0; shopYaw = 0;
       if (!throwState) { positionX = 0; positionZ = 0; lift = 0; }
+      diceScreenCenter = null;
       diceDepthScale = 1;
     }
     stage.position.set(0, 0, 0);
@@ -512,6 +545,8 @@ function updateShop() {
   // 주사위를 감싸는 공의 화면 원이 화면과 한 점이라도 겹치면 '보임'으로 봅니다(직교 카메라라 원 그대로 투영됨).
   const centerPx = toScreen(new THREE.Vector3(center.x, center.y + heldLift, center.z));
   const radiusPx = diceRadius * scale * diceViewScale;
+  // 배경 빛 웅덩이(sketch.js)의 중심: 화면에 보이는 주사위 중심
+  diceScreenCenter = [centerPx.x, centerPx.y];
   const nearestX = Math.min(Math.max(centerPx.x, 0), innerWidth), nearestY = Math.min(Math.max(centerPx.y, 0), innerHeight);
   const diceVisible = Math.hypot(centerPx.x - nearestX, centerPx.y - nearestY) < radiusPx;
   if (!throwState && diceVisible) shownGlow += ((currentTopFace() - 1) / 5 - shownGlow) * (1 - Math.exp(-dt / 380));
@@ -525,7 +560,18 @@ function updateShop() {
   // 단계가 오르면 속의 빛만 더해져 주사위가 점점 밝아집니다.
   // 6에서도 숫자 눈이 하얗게 묻히지 않도록, 패널 빛은 1의 1.5배까지만 오릅니다(눈은 따로 더 밝아짐).
   ACRYLIC.emissiveIntensity = 1 + 0.5 * diceLevel;
-  if (shopProgress > .5) innerLight.intensity = 2.2 + 3 * diceLevel;
+  // 윗면 1(조명 꺼짐): 미색 아이보리 패널과 새틴 금속(덜 반짝이는 은은한 광)으로 보입니다. 2 이상으로 가면 부드럽게 원래대로.
+  const off = 1 - THREE.MathUtils.smoothstep(shownGlow, 0, 0.2);
+  OFF_LOOK.value = off;
+  FROST_MILK.value = OFF_FROST.milk; FROST_RIM.value = OFF_FROST.rim; FROST_SEE.value = OFF_FROST.seeThrough;
+  // 뒤가 비치려면 투명 재질이어야 합니다(비침이 있을 때만 켬).
+  const wantTransparent = OFF_FROST.seeThrough * off > 0.001;
+  if (ACRYLIC.transparent !== wantTransparent) { ACRYLIC.transparent = wantTransparent; ACRYLIC.needsUpdate = true; }
+  for (const material of steelMaterials) {
+    material.roughness = THREE.MathUtils.lerp(0.45, OFF_STEEL_ROUGHNESS, off);
+    material.envMapIntensity = THREE.MathUtils.lerp(1.6, OFF_STEEL_SHINE, off);
+  }
+  if (shopProgress > .5) innerLight.intensity = (2.2 + 3 * diceLevel) * (1 - 0.6 * off);
 }
 
 const raycaster = new THREE.Raycaster(), pointerNdc = new THREE.Vector2();
