@@ -174,13 +174,13 @@ body.is-shop .face-buttons, body.is-shop .instruction, body.is-shop .memo, body.
 body.is-shop .shop-hint { display: block; }
 
 /* Shop 한국어 안내 크기 */
-.shop-hint .ko { font-size: 12pt; line-height: 14.4pt; -webkit-text-stroke: 0.5px currentColor; }
+.instruction .ko, .shop-hint .ko { font-size: 12pt; line-height: 14.4pt; -webkit-text-stroke: 0.5px currentColor; }
 
 /* 휴대폰: Shop 안내는 한 단계 작게, 아래 여백은 화면 아래 안전 영역(홈 바)만큼 더 띄웁니다. */
 @media (max-width: 600px) {
  .shop-hint { bottom: calc(16px + env(safe-area-inset-bottom)); max-width: 92vw; }
- .shop-hint .ko { font-size: 10.5pt; line-height: 13pt; }
- .shop-hint .de { font-size: 8.5pt; line-height: 11pt; margin-top: 6px; }
+ .instruction .ko, .shop-hint .ko { font-size: 10.5pt; line-height: 13pt; }
+ .instruction .de, .shop-hint .de { font-size: 8.5pt; line-height: 11pt; margin-top: 6px; }
 }
 
 /* Shop 구매 패널: 화면 오른쪽에서 왼쪽으로 열리는 글래스 패널 */
