@@ -287,11 +287,18 @@ function draw() {
   // 빛 웅덩이: 중심은 주사위를 따라가고, 반지름은 밝기 단계(윗면 숫자)에 따라 넓어집니다(화면 밖에서는 단계가 멈춰 있음).
   const poolCenter = diceScreenCenter || [width / 2, height / 2];
   const poolRadius = Math.min(width, height) * lerp(POOL_RADIUS_MIN, POOL_RADIUS_MAX, diceGlowLevel);
-  // Shop 안내 글자색: 안내 문구 자리가 빛 안쪽이면 진한 회색, 어두운 곳이면 밝은 회색으로 바꿔 늘 읽히게 합니다.
+  // Shop 안내 글자색: 안내 문구 자리의 실제 배경 밝기(바닥 셰이더와 같은 계산)를 보고, 늘 읽히는 색을 고릅니다.
   const hint = document.querySelector('.shop-hint');
-  const hintBox = hint && hint.offsetParent ? hint.getBoundingClientRect() : null;
-  const hintLit = hintBox && Math.hypot(hintBox.left + hintBox.width / 2 - poolCenter[0], hintBox.top + hintBox.height / 2 - poolCenter[1]) < poolRadius * 0.55;
-  const hintInk = hintLit || off > 0.5 ? '#6f7178' : '#b4b6bc';
+  const hintBox = hint && shopMode ? hint.getBoundingClientRect() : null;   // position: fixed라 offsetParent로는 표시 여부를 알 수 없습니다.
+  const roomLightnessAt = (x, y) => {
+    const t = Math.min(1, Math.max(0, (Math.hypot(x - poolCenter[0], y - poolCenter[1]) / poolRadius - 0.15) / 0.85));
+    const pool = 1 - t * t * (3 - 2 * t);
+    const lit = pool * pool * (3 - 2 * pool) * lerp(POOL_PEAK_MIN, 1, diceGlowLevel);
+    return lerp(0.08, 0.97, lerp(lit, 1, off));
+  };
+  const hintY = hintBox ? hintBox.top + hintBox.height / 2 : 0;
+  const hintBg = hintBox ? [hintBox.left, hintBox.left + hintBox.width / 2, hintBox.right].reduce((sum, x) => sum + roomLightnessAt(x, hintY), 0) / 3 : 1;
+  const hintInk = hintBg >= 0.9 ? '#6f7178' : hintBg >= 0.5 ? '#2c2d31' : hintBg >= 0.25 ? '#f2f3f6' : '#b4b6bc';
   if (hintInk !== lastHintInk) { lastHintInk = hintInk; document.body.style.setProperty('--shop-hint-ink', hintInk); }
   positionMemo();
   // 카메라 시선을 정지한 주사위 중심에 맞춰 모든 화면 크기에서 중앙에 배치합니다.

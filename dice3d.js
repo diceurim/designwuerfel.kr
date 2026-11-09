@@ -240,6 +240,92 @@ function updateLook() {
   fillLight.intensity = real ? 0.75 : 0;
 }
 
+// ───────── Shop 화면: 주사위 외곽의 역광과 그림자 ─────────
+// 주사위만 따로 그린 뒤 그 실루엣을 흐려서, 외곽의 어느 쪽이 빛을 향하는지 화면에서 계산합니다.
+// 왼쪽 위 외곽에는 흰 역광이 들어와 경계가 살짝 풀리고, 오른쪽·아래 외곽에는 진한 그림자 선이 생깁니다.
+const BACKLIGHT = {
+  blur: 3.2, minBlur: 1.6,      // 실루엣을 흐리는 정도(원근·화면 배율 1에서 CSS 픽셀). 휴대폰에서는 주사위 크기에 비례해 줄어듭니다.
+  light: [-0.75, 0.66],         // 빛이 오는 화면 방향(왼쪽 위)
+  rimAmount: 0.95, rimReach: 0.97, rimSoft: 0.2,      // 흰 역광: 세기, 안쪽으로 들어오는 폭, 경계가 풀리는 정도
+  shadowAmount: 0.96, shadowInk: 0.04, shadowReach: 0.94, shadowSoft: 0.09, // 그림자 선: 세기, 색(선형 밝기), 안쪽으로 들어오는 폭, 경계가 풀리는 정도
+};
+const screenScene = new THREE.Scene(), screenCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const screenQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
+screenQuad.frustumCulled = false;
+screenScene.add(screenQuad);
+const SCREEN_VERT = 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
+const screenPass = (uniforms, fragmentShader) => new THREE.ShaderMaterial({ uniforms, fragmentShader, vertexShader: SCREEN_VERT, depthTest: false, depthWrite: false, blending: THREE.NoBlending });
+const diceTarget = new THREE.WebGLRenderTarget(4, 4, { samples: 4, type: THREE.HalfFloatType });
+const blurTargetA = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType }), blurTargetB = blurTargetA.clone();
+// 실루엣 흐리기. 첫 번째(가로) 패스는 주사위의 알파를, 두 번째(세로) 패스는 앞 결과의 r을 읽습니다.
+const blurPass = screenPass({ tMap: { value: null }, uStep: { value: new THREE.Vector2() }, uFromAlpha: { value: 0 } }, `
+  varying vec2 vUv;
+  uniform sampler2D tMap;
+  uniform vec2 uStep;
+  uniform float uFromAlpha;
+  float take(vec2 uv) { vec4 c = texture2D(tMap, uv); return uFromAlpha > 0.5 ? c.a : c.r; }
+  void main() {
+    float sum = take(vUv) * 0.1964;
+    sum += (take(vUv + uStep) + take(vUv - uStep)) * 0.1747;
+    sum += (take(vUv + uStep * 2.0) + take(vUv - uStep * 2.0)) * 0.1210;
+    sum += (take(vUv + uStep * 3.0) + take(vUv - uStep * 3.0)) * 0.0651;
+    sum += (take(vUv + uStep * 4.0) + take(vUv - uStep * 4.0)) * 0.0273;
+    gl_FragColor = vec4(sum / 0.9726, 0.0, 0.0, 1.0);
+  }`);
+const rimPass = screenPass({ tDice: { value: diceTarget.texture }, tBlur: { value: blurTargetB.texture }, uTexel: { value: new THREE.Vector2() }, uStrength: { value: 0 } }, `
+  varying vec2 vUv;
+  uniform sampler2D tDice, tBlur;
+  uniform vec2 uTexel;
+  uniform float uStrength;
+  void main() {
+    vec4 dice = texture2D(tDice, vUv);
+    float blurred = texture2D(tBlur, vUv).r;   // 실루엣 바로 위에서 0.5, 안쪽 깊은 곳에서 1
+    vec3 color = dice.a > 0.001 ? dice.rgb / dice.a : vec3(1.0);
+    // 흐린 실루엣의 기울기로 외곽의 바깥 방향을 구해, 빛을 향하는 정도를 봅니다.
+    vec2 slope = vec2(texture2D(tBlur, vUv + vec2(uTexel.x, 0.0)).r - texture2D(tBlur, vUv - vec2(uTexel.x, 0.0)).r,
+                      texture2D(tBlur, vUv + vec2(0.0, uTexel.y)).r - texture2D(tBlur, vUv - vec2(0.0, uTexel.y)).r);
+    float facing = dot(-slope / max(length(slope), 1e-5), normalize(vec2(${BACKLIGHT.light.join(', ')})));
+    float lit = smoothstep(-0.12, 0.42, facing), shaded = smoothstep(0.04, 0.5, -facing);
+    float rim = pow(1.0 - smoothstep(0.5, ${BACKLIGHT.rimReach.toFixed(3)}, blurred), 1.35) * ${BACKLIGHT.rimAmount.toFixed(3)} * lit;
+    float shadow = pow(1.0 - smoothstep(0.5, ${BACKLIGHT.shadowReach.toFixed(3)}, blurred), 1.5) * ${BACKLIGHT.shadowAmount.toFixed(3)} * shaded;
+    color = mix(color, vec3(1.0), rim * uStrength);
+    color = mix(color, vec3(${BACKLIGHT.shadowInk.toFixed(3)}), shadow * uStrength);
+    float soft = mix(${BACKLIGHT.rimSoft.toFixed(3)}, ${BACKLIGHT.shadowSoft.toFixed(3)}, shaded);
+    float alpha = mix(dice.a, smoothstep(0.5 - soft, 0.5 + soft, blurred), uStrength);
+    gl_FragColor = vec4(color, alpha);
+    #include <colorspace_fragment>
+    gl_FragColor.rgb *= alpha;
+  }`);
+function drawScreenPass(material, target) {
+  screenQuad.material = material;
+  renderer.setRenderTarget(target);
+  renderer.render(screenScene, screenCamera);
+}
+function renderWithBacklight(strength) {
+  const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+  const blurWidth = Math.max(1, size.x >> 1), blurHeight = Math.max(1, size.y >> 1);
+  if (diceTarget.width !== size.x || diceTarget.height !== size.y) {
+    diceTarget.setSize(size.x, size.y);
+    blurTargetA.setSize(blurWidth, blurHeight);
+    blurTargetB.setSize(blurWidth, blurHeight);
+  }
+  renderer.setRenderTarget(diceTarget);
+  renderer.render(scene, camera);
+  const blur = Math.max(BACKLIGHT.minBlur, BACKLIGHT.blur * diceViewScale * diceDepthScale);
+  const step = renderer.getPixelRatio() * blur / 1.6;   // 흐리기 한 칸의 길이(절반 해상도 픽셀)
+  blurPass.uniforms.tMap.value = diceTarget.texture;
+  blurPass.uniforms.uFromAlpha.value = 1;
+  blurPass.uniforms.uStep.value.set(step / blurWidth, 0);
+  drawScreenPass(blurPass, blurTargetA);
+  blurPass.uniforms.tMap.value = blurTargetA.texture;
+  blurPass.uniforms.uFromAlpha.value = 0;
+  blurPass.uniforms.uStep.value.set(0, step / blurHeight);
+  drawScreenPass(blurPass, blurTargetB);
+  rimPass.uniforms.uStrength.value = strength;
+  rimPass.uniforms.uTexel.value.set(Math.max(1, step / 2) / blurWidth, Math.max(1, step / 2) / blurHeight);
+  drawScreenPass(rimPass, null);
+}
+
 function render() {
   // 창 크기가 바뀌는 도중의 resize 이벤트만 받고 끝난 경우에도 캔버스가 화면 크기를 따라가게 합니다.
   const drawn = renderer.getSize(new THREE.Vector2());
@@ -279,7 +365,9 @@ function render() {
   updateShop();
   // 휴대폰에서 구석으로 내려간 작은 주사위는 스크롤되는 내용에 가려지지 않게 화면 위층에 그립니다.
   renderer.domElement.style.zIndex = innerWidth <= 600 && !lollingWorld && writingViewProgress > .5 ? '6' : '1';
-  renderer.render(scene, camera);
+  // Shop 재질로 바뀌는 순간부터 외곽 효과를 서서히 켭니다.
+  const backlight = THREE.MathUtils.smoothstep(shopProgress, 0.5, 1);
+  if (backlight > 0) renderWithBacklight(backlight); else renderer.render(scene, camera);
 }
 
 // ───────── Shop 화면: 손으로 만지는 실물 주사위 ─────────
