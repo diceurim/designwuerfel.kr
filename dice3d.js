@@ -327,6 +327,7 @@ function renderWithBacklight(strength) {
 }
 
 function render() {
+  if (!sceneDrawn) return;   // p5가 주사위 자리(띠 아래 가운데)를 정하기 전에는 그리지 않습니다.
   // 창 크기가 바뀌는 도중의 resize 이벤트만 받고 끝난 경우에도 캔버스가 화면 크기를 따라가게 합니다.
   const drawn = renderer.getSize(new THREE.Vector2());
   if (drawn.x !== innerWidth || drawn.y !== innerHeight) resize();
@@ -423,7 +424,7 @@ const toScreen = v => { const p = v.clone().project(camera); return { x: (p.x + 
 function cellScreen(cell) {
   const z = cell[1] * DICE_SIZE, scale = depthScale(z);
   const center = toScreen(new THREE.Vector3(cell[0] * DICE_SIZE, HALF * scale, z));
-  return { ...center, size: DICE_SIZE * diceViewScale * scale };
+  return { x: center.x + roomMoveLeft(), y: center.y, size: DICE_SIZE * diceViewScale * scale };
 }
 // 칸에 놓인 주사위가 화면에서 차지하는 사각형(정육면체 꼭짓점 8개를 투영)
 function cellRect(cell) {
@@ -431,11 +432,16 @@ function cellRect(cell) {
   const rect = { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity };
   for (const dx of [-1, 1]) for (const dy of [0, 2]) for (const dz of [-1, 1]) {
     const p = toScreen(new THREE.Vector3(cell[0] * DICE_SIZE + dx * half, dy * half, z + dz * half));
-    rect.left = Math.min(rect.left, p.x); rect.right = Math.max(rect.right, p.x);
+    const x = p.x + roomMoveLeft();
+    rect.left = Math.min(rect.left, x); rect.right = Math.max(rect.right, x);
     rect.top = Math.min(rect.top, p.y); rect.bottom = Math.max(rect.bottom, p.y);
   }
   return rect;
 }
+// 구매 패널이 넓게 열리면 주사위가 쓸 수 있는 공간의 오른쪽 끝이 패널 왼쪽 끝으로 바뀝니다.
+const roomRight = () => shopWideCell ? innerWidth - shopPanelRuler.offsetWidth : innerWidth;
+// 바닥이 아직 옮겨 가는 중이어도 판정은 도착한 뒤의 화면 기준으로 합니다.
+const roomMoveLeft = () => shopRoomGoal - shopRoomShift;
 // 주사위가 멈춰 쉬는 영역: 화면에서 위쪽 Memo 버튼과 아래쪽 안내 문구 자리를 뺀 곳(매 프레임 실제 위치로 갱신).
 // 휴대폰처럼 화면이 작을 때 주사위가 버튼·안내 밑에 멈춰 잡기 어려워지지 않게 합니다. 화면 밖 판정과 점대칭 계산은 화면 전체 기준 그대로입니다.
 let playTop = 0, playBottom = 0;
@@ -443,19 +449,19 @@ function updatePlayArea() {
   const memo = document.getElementById('memoButton'), hint = document.querySelector('.shop-hint');
   const memoRect = memo && memo.offsetParent ? memo.getBoundingClientRect() : null;
   const hintRect = hint && hint.offsetParent ? hint.getBoundingClientRect() : null;
-  playTop = memoRect ? memoRect.bottom + 8 : 0;
+  playTop = Math.max(memoRect ? memoRect.bottom + 8 : 0, topBandHeight + 8);
   playBottom = hintRect && hintRect.height ? innerHeight - hintRect.top + 8 : 0;
 }
 // 쉬는 영역 테두리까지의 여유(px). 음수면 그만큼 밖으로 삐져나감
 function sideGaps(cell) {
   const r = cellRect(cell);
-  return { left: r.left, right: innerWidth - r.right, top: r.top - playTop, bottom: innerHeight - playBottom - r.bottom };
+  return { left: r.left, right: roomRight() - r.right, top: r.top - playTop, bottom: innerHeight - playBottom - r.bottom };
 }
 const NEAR_EDGE = 0.4;      // 테두리까지 여유가 주사위 한 변의 0.4배보다 작으면 '가장자리'(잡기 어려운 자리)
 const INSIDE_PAD = 8;       // 복귀가 끝났을 때 테두리에서 최소한 떨어져 있을 거리(px)
 function cellOffscreen(cell) {
   const r = cellRect(cell);
-  return r.right < 0 || r.left > innerWidth || r.bottom < 0 || r.top > innerHeight;
+  return r.right < 0 || r.left > roomRight() || r.bottom < topBandHeight || r.top > innerHeight;
 }
 const cellFullyInside = cell => Object.values(sideGaps(cell)).every(gap => gap >= INSIDE_PAD);
 const minGap = cell => Math.min(...Object.values(sideGaps(cell)));
@@ -472,7 +478,7 @@ function headingToNearEdge(cell, dir) {
 
 // 화면 좌표(px)에 주사위 중심이 보이도록 하는 칸 좌표(바닥 위, 원근 크기까지 맞춰 몇 번 되풀이해 수렴)
 function cellAtScreen(x, y) {
-  const ndc = [x / innerWidth * 2 - 1, 1 - y / innerHeight * 2];
+  const ndc = [(x - roomMoveLeft()) / innerWidth * 2 - 1, 1 - y / innerHeight * 2];
   let scale = 1, hit = null;
   for (let i = 0; i < 4; i++) {
     const near = new THREE.Vector3(ndc[0], ndc[1], -1).unproject(camera);
@@ -482,8 +488,8 @@ function cellAtScreen(x, y) {
   }
   return [hit.x / DICE_SIZE, hit.z / DICE_SIZE];
 }
-// 화면 중심에 대한 점대칭 위치: (x, y) → (W − x, H − y)
-const mirrorCell = cell => { const p = cellScreen(cell); return cellAtScreen(innerWidth - p.x, innerHeight - p.y); };
+// 주사위 공간의 중심에 대한 점대칭 위치: (x, y) → (W − x, H − y). W는 구매 패널이 넓게 열리면 남은 공간의 폭입니다.
+const mirrorCell = cell => { const p = cellScreen(cell); return cellAtScreen(roomRight() - p.x, innerHeight + topBandHeight - p.y); };
 
 // 복귀할 때 들어오며 몇 칸 굴러야 하는지 정합니다.
 // ① 모든 테두리에서 가장자리 범위(잡기 어려운 자리) 밖인 첫 칸 → ② 없으면 주사위 전체가 화면 안인 첫 칸
@@ -511,6 +517,7 @@ function startTip(dir, bump = false, mode = null, remaining = 0) {
   const landed = new THREE.Quaternion().setFromAxisAngle(axis, Math.PI / 2).multiply(from);
   const yawTo = bump ? shopYaw : REST_YAWS[(currentTopFace(landed) - 1) % REST_YAWS.length];
   tipState = { start: performance.now(), dir, bump, mode, remaining, yawFrom: shopYaw, yawTo, from };
+  if (!mode && !bump) applyManualTip(tipState);
 }
 
 // 복귀가 끝나면 조작 상태를 모두 정리해, 보이는 자리에서 바로 다시 잡거나 굴릴 수 있게 합니다.
@@ -527,7 +534,7 @@ function keepInsideAfterResize() {
   lastShopSize = size;
   if (tipState || throwState || drag || cellFullyInside(shopCell)) return;
   // 테두리 가장자리 범위까지 벗어난 자리를 먼저 찾고, 없으면 전체가 보이는 첫 자리로 옮깁니다.
-  const center = cellAtScreen(innerWidth / 2, innerHeight / 2);
+  const center = cellAtScreen(roomRight() / 2, (innerHeight + topBandHeight) / 2);
   let firstInside = null;
   for (let i = 1; i <= 40; i++) {
     const t = i / 40, at = [shopCell[0] + (center[0] - shopCell[0]) * t, shopCell[1] + (center[1] - shopCell[1]) * t];
@@ -538,12 +545,57 @@ function keepInsideAfterResize() {
   shopCell = firstInside || center;
 }
 
+// 구매 패널: 주사위가 처음 자리(가운데 칸)보다 왼쪽 칸에 있으면 열리고, 가운데 칸이나 그 오른쪽이면 닫힙니다.
+// 넘어가기 시작할 때 도착할 칸을 기준으로 정하므로, 주사위가 움직이는 동시에 패널도 움직입니다.
+const shopPanel = document.getElementById('shopPanel');
+const shopPanelRuler = document.querySelector('.shop-panel-ruler');   // CSS에 적힌 넓은 패널 폭을 그대로 읽습니다.
+let shopPanelStage = 0;   // 0 닫힘, 1 열림, 2 넓게 열림
+let shopWideCell = null;  // 넓게 열린 동안 주사위 공간의 가운데에 올 칸
+const shopPhotos = [...document.querySelectorAll('.shop-panel-gallery img')];
+const shopGallery = document.querySelector('.shop-panel-gallery');
+// 위아래로 한 칸 굴릴 때 사진을 어디서 어디로 옮길지 정합니다(step: 아래 +1 다음 사진, 위 -1 이전 사진). 처음과 끝 사진에서는 더 넘어가지 않습니다.
+function photoScrollFor(step) {
+  const pad = parseFloat(getComputedStyle(shopGallery).paddingTop);
+  const stops = shopPhotos.map(photo => photo.offsetTop - pad);
+  const from = shopGallery.scrollTop;
+  const nearest = stops.reduce((best, stop, i) => Math.abs(stop - from) < Math.abs(stops[best] - from) ? i : best, 0);
+  return { from, to: stops[THREE.MathUtils.clamp(nearest + step, 0, stops.length - 1)] };
+}
+function setShopPanel(stage) {
+  if (stage === shopPanelStage) return;
+  shopPanelStage = stage;
+  document.body.classList.toggle('shop-panel-open', stage > 0);
+  document.body.classList.toggle('shop-panel-wide', stage === 2);
+  shopPanel.inert = stage === 0;
+  shopPanel.setAttribute('aria-hidden', String(stage === 0));
+}
+// 왼쪽으로 두 칸째 굴리면 넓게 열리고, 넓게 열린 동안 오른쪽으로 굴리면 다시 좁아집니다.
+// 좁은 공간의 가장자리를 넘어 저절로 되돌아오는 동안에는 넓게 열린 상태를 그대로 둡니다.
+// 판정은 손으로 굴리기 시작하는 순간에 합니다(프레임이 밀려 굴림이 한 프레임에 끝나도 놓치지 않게).
+function applyManualTip(tip) {
+  const [dx, dz] = tip.dir, column = shopCell[0] + dx;
+  if (shopWideCell && dx > 0) shopWideCell = null;
+  else if (!shopWideCell && dx < 0 && column < -1.25) { shopWideCell = [column, shopCell[1]]; tip.opensWide = true; }
+  // 넓게 열린 동안(데스크톱) 위아래로 굴리면 사진도 같은 타이밍으로 넘어갑니다.
+  if (shopWideCell && dz && innerWidth > 600) tip.photoScroll = photoScrollFor(dz);
+}
+function updateShopPanel(off) {
+  const column = shopCell[0] + (tipState ? tipState.dir[0] : 0);
+  setShopPanel(shopWideCell ? 2 : column < -0.25 ? 1 : 0);
+  // 패널이 열려 있고 윗면이 1(흰 배경)이면 패널을 밝게 뒤집습니다.
+  if (shopPanelStage > 0) document.body.classList.toggle('shop-panel-light', off > 0.5);
+  // 넓게 열리면 그 칸이 남은 공간의 가운데에 오도록 바닥과 주사위를 함께 옮깁니다.
+  shopRoomGoal = shopWideCell ? roomRight() / 2 - (cellScreen(shopWideCell).x - shopRoomGoal) : 0;
+}
+
 function updateShop() {
   const now = performance.now(), dt = Math.min(now - lastFrame, 100);
   lastFrame = now;
   if (!shopMode) {
     // 시작 화면으로 돌아가면 가운데 칸, 원래 크기로 되돌립니다.
     if (wasShop) {
+      shopWideCell = null; shopRoomGoal = 0;
+      setShopPanel(0);
       wasShop = false; shopCell = [0, 0]; tipState = null; drag = null; heldLift = 0; shopYaw = 0;
       if (!throwState) { positionX = 0; positionZ = 0; lift = 0; }
       diceScreenCenter = null;
@@ -570,6 +622,7 @@ function updateShop() {
     scale = depthScale(center.z);
     // 넘어가는 동안 멈춤 각도도 이전 숫자의 각도에서 다음 숫자의 각도로 이어서 돌아갑니다(벽에 막혀 들썩일 때는 그대로).
     const progress = (1 - Math.cos(Math.PI * t)) / 2;
+    if (tipState.photoScroll) shopGallery.scrollTop = tipState.photoScroll.from + (tipState.photoScroll.to - tipState.photoScroll.from) * progress;
     const yaw = tipState.yawFrom + (tipState.yawTo - tipState.yawFrom) * progress;
     const turned = yawAround(yaw).multiply(new THREE.Quaternion().setFromAxisAngle(axis, eased)).multiply(tipState.from);
     dice.quaternion.copy(rootQuaternion.clone().invert().multiply(turned));
@@ -600,7 +653,7 @@ function updateShop() {
           } else {
             startTip(finished.dir, false, 'leaving');
           }
-        } else if (cellNearEdge(shopCell) && headingToNearEdge(shopCell, finished.dir)) {
+        } else if (!finished.opensWide && cellNearEdge(shopCell) && headingToNearEdge(shopCell, finished.dir)) {   // 넓게 열리며 도착한 칸에서는 멈춥니다(휴대폰은 공간이 좁아 늘 가장자리입니다).
           startTip(finished.dir, false, 'leaving');
         }
       }
@@ -635,7 +688,7 @@ function updateShop() {
   const radiusPx = diceRadius * scale * diceViewScale;
   // 배경 빛 웅덩이(sketch.js)의 중심: 화면에 보이는 주사위 중심
   diceScreenCenter = [centerPx.x, centerPx.y];
-  const nearestX = Math.min(Math.max(centerPx.x, 0), innerWidth), nearestY = Math.min(Math.max(centerPx.y, 0), innerHeight);
+  const nearestX = Math.min(Math.max(centerPx.x, 0), innerWidth), nearestY = Math.min(Math.max(centerPx.y, topBandHeight), innerHeight);
   const diceVisible = Math.hypot(centerPx.x - nearestX, centerPx.y - nearestY) < radiusPx;
   if (!throwState && diceVisible) shownGlow += ((currentTopFace() - 1) / 5 - shownGlow) * (1 - Math.exp(-dt / 380));
   // 윗면 1의 밝기(emissiveIntensity 1, 속 광원 2.2)에서 시작해 6으로 갈수록 훨씬 밝아집니다.
@@ -650,6 +703,7 @@ function updateShop() {
   ACRYLIC.emissiveIntensity = 1 + 0.5 * diceLevel;
   // 윗면 1(조명 꺼짐): 미색 아이보리 패널과 새틴 금속(덜 반짝이는 은은한 광)으로 보입니다. 2 이상으로 가면 부드럽게 원래대로.
   const off = 1 - THREE.MathUtils.smoothstep(shownGlow, 0, 0.2);
+  updateShopPanel(off);
   OFF_LOOK.value = off;
   FROST_MILK.value = OFF_FROST.milk; FROST_RIM.value = OFF_FROST.rim; FROST_SEE.value = OFF_FROST.seeThrough;
   // 뒤가 비치려면 투명 재질이어야 합니다(비침이 있을 때만 켬).
@@ -711,4 +765,4 @@ addEventListener('keydown', event => {
   tipScreen(...keys[event.key]);
 });
 
-load().catch(error => console.warn('3D 주사위를 불러오지 못해 기존 주사위를 씁니다.', error));
+load().catch(error => console.warn('3D 주사위를 불러오지 못했어요.', error));

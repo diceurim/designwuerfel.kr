@@ -3,23 +3,23 @@ body.is-writing .face-buttons, body.is-writing .instruction { display: none; }
 #writingView { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
 .writing-close { position: absolute; right: 2%; top: 3%; width: clamp(40px, 4vw, 78px); aspect-ratio: 1; border: 0; padding: 0; background: #6d6d6d; mask: url('assets/buttonX.png') center / contain no-repeat; -webkit-mask: url('assets/buttonX.png') center / contain no-repeat; cursor: pointer; pointer-events: auto; }
 .writing-close:hover, .writing-close:focus-visible { background: #fff; }
-.writing-label { position: absolute; left: 58%; top: 13%; margin: 0; color: #bcbcbc; font: 16px 'Apple SD Gothic Neo', sans-serif; }
+.writing-label { position: absolute; left: 58%; top: 13%; margin: 0; color: #bcbcbc; font: 16px 'Wuerfel Latin', 'Apple SD Gothic Neo', sans-serif; }
 .writing-column { position: absolute; top: 14.8%; right: 7.8%; width: 24.7%; height: 74.2%; display: flex; flex-direction: column; pointer-events: auto; }
 .writing-prompt { color: #fff; text-align: center; margin: 0 0 30px; }
-.writing-serif { font-family: 'AppleMyungjo', 'Batang', 'Noto Serif KR', serif; font-size: 14pt; line-height: 16.8pt; font-weight: 400; -webkit-text-stroke: .5px currentColor; }
+.writing-serif { font-family: 'Wuerfel Latin', 'AppleMyungjo', 'Batang', 'Noto Serif KR', serif; font-size: 14pt; line-height: 16.8pt; font-weight: 400; -webkit-text-stroke: .5px currentColor; }
 .paper-stack { position: relative; flex: 1; min-height: 0; perspective: 1400px; background: #fff; }
 .writing-paper { position: absolute; inset: 0; background: #fff; display: flex; flex-direction: column; padding: 22px 12% 28px; transform-origin: center top; backface-visibility: hidden; }
 .date-button { border: 0; padding: 0; background: none; color: #121212; cursor: pointer; text-align: left; white-space: nowrap; }
 .date-button::before { content: '▼'; margin-left: -20px; margin-right: 16px; font-size: 14px; }
 .date-panel { background: #fff; padding: 12px 0; }
-.date-panel input { width: 100%; font: 16px 'Apple SD Gothic Neo', sans-serif; }
-.writing-input { flex: 1; min-height: 0; width: 100%; margin-top: 40px; padding: 0; border: 0; outline: none; resize: none; color: #121212; caret-color: #000; background: transparent; font: 14px/1.5 'Apple SD Gothic Neo', sans-serif; }
+.date-panel input { width: 100%; font: 16px 'Wuerfel Latin', 'Apple SD Gothic Neo', sans-serif; }
+.writing-input { flex: 1; min-height: 0; width: 100%; margin-top: 40px; padding: 0; border: 0; outline: none; resize: none; color: #121212; caret-color: #000; background: transparent; font: 14px/1.5 'Wuerfel Latin', 'Apple SD Gothic Neo', sans-serif; }
 .save-hint { margin: 24px 0 0; text-align: center; color: #bcbcbc; font-size: 12pt; line-height: 14.4pt; }
 .paper-copy { pointer-events: none; z-index: 2; white-space: pre-wrap; overflow: visible; backface-visibility: visible; transform-style: preserve-3d; }
 .paper-copy > * { backface-visibility: hidden; }
 /* 뒤집힌 면은 글씨가 비치지 않는 흰 종이로 표시합니다. */
 .paper-copy::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to bottom, #e9e9e9, #fff 24%, #f5f5f5); transform: rotateX(180deg) translateZ(1px); backface-visibility: hidden; }
-.paper-copy .saved-body { flex: 1; margin-top: 40px; overflow: hidden; font: 14px/1.5 'Apple SD Gothic Neo', sans-serif; }
+.paper-copy .saved-body { flex: 1; margin-top: 40px; overflow: hidden; font: 14px/1.5 'Wuerfel Latin', 'Apple SD Gothic Neo', sans-serif; }
 @media (max-width: 1000px) {
  .writing-column { right: 6%; width: 36%; }
  .writing-label { left: 43%; }
@@ -87,7 +87,7 @@ body.is-writing { background: #fff; }
 .is-overlay .overlay-source-stack { display: block; position: absolute; left: 41.4%; top: 12%; width: 23.9%; height: 77%; pointer-events: auto; }
 .source-note { position: absolute; margin: 0; width: 100%; padding: 28px 12%; display: flex; flex-direction: column; }
 .source-date { margin: 0; text-align: center; flex: none; }
-.source-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 14px/1.4 'Apple SD Gothic Neo', sans-serif; overflow-y: auto; min-height: 0; }
+.source-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 14px/1.4 'Wuerfel Latin', 'Apple SD Gothic Neo', sans-serif; overflow-y: auto; min-height: 0; }
 .source-note-back { top: 26.4%; bottom: 0; background: #333; color: white; padding-top: 34%; }
 .source-note-back .source-text { position: absolute; top: calc(36.82% + 18px); bottom: 88px; left: 12%; right: 12%; }
 .source-note-back .source-date { margin-top: auto; }

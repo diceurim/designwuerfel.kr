@@ -1,3 +1,10 @@
+/* 영문·독일어·숫자 글꼴: Neue Haas Grotesk Display Pro. 한글은 각 글꼴 목록의 다음 글꼴로 표시됩니다.
+   지금은 이 글꼴이 설치된 컴퓨터에서만 보입니다. 웹폰트 라이선스를 받으면 이 src만 바꾸면 됩니다. */
+@font-face { font-family: 'Wuerfel Latin'; font-weight: 300; src: local('NeueHaasDisplay-Light'), local('Neue Haas Grotesk Display Pro 45 Light'); unicode-range: U+0021-007E, U+00A1-00FF, U+0100-024F, U+20AC; }
+@font-face { font-family: 'Wuerfel Latin'; font-weight: 400; src: local('NeueHaasDisplay-Roman'), local('Neue Haas Grotesk Display Pro 55 Roman'); unicode-range: U+0021-007E, U+00A1-00FF, U+0100-024F, U+20AC; }
+@font-face { font-family: 'Wuerfel Latin'; font-weight: 500; src: local('NeueHaasDisplay-Mediu'), local('Neue Haas Grotesk Display Pro 65 Medium'); unicode-range: U+0021-007E, U+00A1-00FF, U+0100-024F, U+20AC; }
+@font-face { font-family: 'Wuerfel Latin'; font-weight: 700; src: local('NeueHaasDisplay-Bold'), local('Neue Haas Grotesk Display Pro 75 Bold'); unicode-range: U+0021-007E, U+00A1-00FF, U+0100-024F, U+20AC; }
+@font-face { font-family: 'Wuerfel Latin'; font-weight: 900; src: local('NeueHaasDisplay-Black'), local('Neue Haas Grotesk Display Pro 95 Black'); unicode-range: U+0021-007E, U+00A1-00FF, U+0100-024F, U+20AC; }
 /* 화면 UI 스타일: 얇은 테두리 + 둥근 모서리, 반투명 회색 세그먼트, 라디오 원, 키캡 배지.
    배치와 크기는 각 화면의 CSS를 그대로 따르고, 여기서는 표면 스타일만 덮어씁니다.
    색은 currentColor 기준이라 밝은 종이와 어두운 화면 어디서든 같은 규칙으로 보입니다. */
@@ -142,7 +149,7 @@ body.is-lolling #viewLabel::after { content: 'Lolling · 유희하기'; }
  position: fixed; z-index: 7; top: 3%; height: 40px; padding: 0 24px; border: 0; border-radius: 999px;
  background: #f5f5f5b3; -webkit-backdrop-filter: blur(14px) saturate(1.6); backdrop-filter: blur(14px) saturate(1.6);
  box-shadow: inset 0 0 0 1px #ffffff40; color: #2b2b2b; cursor: pointer;
- font: 400 15px/40px -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif; letter-spacing: .01em;
+ font: 400 15px/40px 'Wuerfel Latin', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif; letter-spacing: .01em;
  transition: background .2s, transform .2s;
 }
 @media (hover: hover) { .glass-button:hover { background: #f5f5f5d9; } }
@@ -174,4 +181,119 @@ body.is-shop .shop-hint { display: block; }
  .shop-hint { bottom: calc(16px + env(safe-area-inset-bottom)); max-width: 92vw; }
  .shop-hint .ko { font-size: 10.5pt; line-height: 13pt; }
  .shop-hint .de { font-size: 8.5pt; line-height: 11pt; margin-top: 6px; }
+}
+
+/* Shop 구매 패널: 화면 오른쪽에서 왼쪽으로 열리는 글래스 패널 */
+.shop-panel {
+  --shop-panel-narrow: clamp(280px, 23.2vw, 400px);                    /* 처음 열렸을 때의 폭 */
+  --shop-panel-wide: calc(100vw - clamp(260px, 64.5vw, 520px));        /* 넓게 열렸을 때의 폭(뺀 값이 주사위 공간의 폭) */
+  display: none; position: fixed; z-index: 4; top: 0; right: 0; bottom: 0; box-sizing: border-box; width: var(--shop-panel-narrow);
+  flex-direction: row; justify-content: flex-end; overflow: hidden;
+  color: #fff; font-family: "Inter", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  background: #323336c7; -webkit-backdrop-filter: blur(28px) saturate(1.4); backdrop-filter: blur(28px) saturate(1.4);
+  border-left: 1px solid #ffffffa6;
+  box-shadow: inset 0 56px 56px -44px #ffffff73, inset 0 -56px 56px -44px #ffffff73, inset -56px 0 56px -44px #ffffff73;
+  transform: translateX(100%); visibility: hidden;
+  transition: transform .6s cubic-bezier(.22, .8, .2, 1), width .6s cubic-bezier(.22, .8, .2, 1), visibility 0s linear .6s, background-color .4s, border-color .4s, box-shadow .4s, color .4s;
+}
+body.is-shop .shop-panel { display: flex; }
+body.shop-panel-open .shop-panel { transform: none; visibility: visible; transition: transform .6s cubic-bezier(.22, .8, .2, 1), width .6s cubic-bezier(.22, .8, .2, 1), visibility 0s, background-color .4s, border-color .4s, box-shadow .4s, color .4s; }
+body.shop-panel-wide .shop-panel { width: var(--shop-panel-wide); }
+.shop-panel-ruler { position: absolute; width: var(--shop-panel-wide); height: 0; visibility: hidden; }
+/* 정보 칸은 오른쪽에 그대로 있고, 패널이 넓어지면 그 왼쪽의 사진 칸이 드러납니다. 사진은 세로로 스크롤합니다. */
+.shop-panel-gallery {
+  --gallery-pad: clamp(28px, 8.5vh, 56px);
+  flex: none; box-sizing: border-box; width: calc(var(--shop-panel-wide) - var(--shop-panel-narrow)); height: 100%;
+  display: flex; flex-direction: column; gap: 16px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
+  padding: var(--gallery-pad) clamp(16px, 3vw, 40px) var(--gallery-pad) clamp(24px, 4.4vw, 44px);
+}
+.shop-panel-gallery::-webkit-scrollbar { display: none; }
+.shop-panel-gallery:focus-visible { outline: 2px solid #fff; outline-offset: -6px; }
+.shop-panel-gallery img { display: block; flex: none; width: min(100%, calc((100vh - 2 * var(--gallery-pad)) * .8)); height: auto; background: #fff; }
+.shop-panel-side {
+  flex: none; box-sizing: border-box; width: var(--shop-panel-narrow); height: 100%; display: flex; flex-direction: column; align-items: center; overflow-y: auto;
+  padding: clamp(40px, 12vh, 110px) 24px clamp(36px, 13vh, 130px);
+}
+.shop-panel-info { width: max-content; max-width: 100%; }   /* 가장 긴 줄 폭으로 가운데 놓고, 글자는 왼쪽을 맞춥니다. */
+.shop-panel-name, .shop-panel-price, .shop-panel-specs { margin: 0; padding: 0; letter-spacing: normal; word-break: keep-all; }
+.shop-panel-name span { display: block; }
+.shop-panel-name [lang="de"] { font-size: 16px; line-height: 1.1; font-weight: 700; }
+.shop-panel-name .ko { font-size: 16px; line-height: 1.3; font-weight: 400; }
+.shop-panel-price { margin-top: clamp(14px, 7vh, 64px); font-size: 16px; line-height: 1.2; font-weight: 400; }
+.shop-panel-specs { margin-top: clamp(14px, 7vh, 64px); list-style: none; font-size: 14px; line-height: 21.6px; }
+.shop-panel-buy {
+ flex: none; width: min(232px, 100%); height: 56px; margin-top: auto; border: 0; border-radius: 28px; background: #fff; color: #000;
+ font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; transition: transform .15s, background-color .4s, color .4s;
+}
+.shop-panel-specs { margin-bottom: 28px; }
+.shop-panel-buy:active { transform: scale(.97); }
+.shop-panel-buy:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+/* 창이 좁아 안내 문구가 패널과 겹치면, 패널이 열린 동안 안내 문구를 감춥니다. */
+.shop-hint { transition: color .4s, opacity .3s; }
+@media (max-width: 1200px) { body.shop-panel-open .shop-hint { opacity: 0; } }
+body.shop-panel-wide .shop-hint { opacity: 0; }
+/* 시작 화면과 Shop 화면 맨 위의 띠: 전환 버튼과 가운데 로고(누르면 시작 화면으로) (데스크톱 전용) */
+.top-band { display: none; }
+.mode-studio { display: none; }
+.shop-panel-de { display: none; }
+/* 데스크톱 전용 */
+@media (min-width: 601px) {
+ :root { --top-band: 72px; }   /* 흰 띠의 높이 */
+ body:not(.is-writing) .top-band {
+  display: flex; position: fixed; z-index: 5; top: 0; left: 0; right: 0; box-sizing: border-box; height: var(--top-band);
+  align-items: center; justify-content: center; background: #121212;
+ }
+ body.is-shop .top-band { background: var(--top-band-bg, #fff); border-bottom: 1px solid #0000000f; }
+ .top-band-home { display: block; padding: 0; border: 0; background: none; cursor: pointer; }
+ .top-band-home:focus-visible { outline: 2px solid #8a8a8a; outline-offset: 4px; }
+ .top-band-home img { display: none; width: auto; }
+ body:not(.is-shop) .logo-graphic { display: block; height: 48px; position: relative; top: 4px; }   /* 시작 화면 로고 크기 */
+ body.is-shop .logo-brand { display: block; height: 24px; filter: invert(var(--top-band-ink, 0)); }   /* Shop 화면 로고 크기 */
+ /* 시작 화면의 버튼과 안내 문구도 띠 아래 영역을 기준으로 놓습니다. */
+ .face-buttons.left { top: calc(var(--top-band) + (100vh - var(--top-band)) * .058); }
+ .instruction { top: calc(var(--top-band) + (100vh - var(--top-band)) * .15); }
+ /* Shop·Memo 전환 버튼은 어느 화면에서나 같은 높이에 놓입니다(띠의 세로 가운데). */
+ .glass-button { top: calc((var(--top-band) - 40px) / 2); }
+ /* studio 버튼: 밑줄 텍스트. Shop 버튼과 같은 높이·여백으로 놓아 글자가 좌우 대칭이 됩니다. */
+ body:not(.is-shop):not(.is-writing) .mode-studio { display: block; }
+ .mode-studio, .mode-studio:hover { left: max(2%, 16px); background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; color: #fafafa; text-decoration: underline; text-underline-offset: 4px; }
+ /* 어두운 배경에서는 Memo 화면의 Shop 버튼과 같은 모양이고, 윗면 1의 흰 띠에서만 보이도록 연회색으로 바꿉니다. */
+ body.is-shop.top-band-light .mode-memo { background: #f2f2f2; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+ body.is-shop.top-band-light .mode-memo:hover { background: #e8e8e8; }
+ .shop-panel-side { scrollbar-width: none; }   /* 창 높이가 낮을 때 정보 칸에 스크롤 막대가 보이지 않게 합니다. */
+ .shop-panel-side::-webkit-scrollbar { display: none; }
+ .shop-panel { top: var(--top-band); font-family: 'Wuerfel Latin', 'Gothic A1', "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+ /* 구매 패널의 유로 가격과 독일어 설명 */
+ .shop-panel-de { display: block; }
+ /* 설명이 두 줄씩 늘어난 만큼 세로 여백을 줄여, 카트 버튼과 겹치지 않게 합니다. */
+ .shop-panel-side { padding: clamp(64px, 4.5vh, 110px) 24px clamp(16px, 3vh, 130px); }
+ .shop-panel-price, .shop-panel-specs { margin-top: clamp(18px, 3.5vh, 78px); }
+ .shop-panel-specs { margin-bottom: 16px; }
+ .shop-panel-specs-de { margin-top: 16px; }   /* 한국어 문단과 독일어 문단 사이 간격 */
+ .shop-panel-price .shop-panel-de { margin-top: 4px; font-size: 16px; line-height: 1.2; }
+ .shop-panel-buy { position: sticky; bottom: 16px; background: transparent; color: inherit; text-decoration: underline; text-underline-offset: 4px; }   /* 창 높이가 낮아도 카트 버튼이 보이게 합니다. */
+ .shop-panel-name [lang="de"], .shop-panel-name .ko, .shop-panel-price, .shop-panel-specs, .shop-panel-buy { font-weight: 300; }   /* 구매 패널 글자 굵기: Light */
+ /* 사진 카드 크기를 맞춰, 위아래로 굴릴 때마다 같은 자리에 한 장씩 놓입니다. */
+ .shop-panel-gallery img { width: min(100%, calc((100vh - var(--top-band) - 2 * var(--gallery-pad)) * .8)); aspect-ratio: 4 / 5; object-fit: contain; }
+ /* 패널이 열려 있고 윗면이 1(흰 배경)이면 패널과 글자를 흑백 반전합니다. */
+ body.shop-panel-light .shop-panel {
+  color: #000; background: #f1f1f3b8; border-left-color: #00000026;
+  box-shadow: inset 0 56px 56px -44px #00000014, inset 0 -56px 56px -44px #00000014, inset -56px 0 56px -44px #00000014;
+ }
+ body.shop-panel-light .shop-panel-buy:focus-visible, body.shop-panel-light .shop-panel-gallery:focus-visible { outline-color: #000; }
+}
+/* 휴대폰: 왼쪽 칸의 주사위와 겹치지 않도록 패널 폭을 절반으로 줄입니다. */
+@media (max-width: 600px) {
+ .shop-panel { --shop-panel-narrow: 50vw; --shop-panel-wide: 70vw; flex-direction: column; justify-content: flex-start; }
+ .shop-panel-side { flex: 1 1 0; min-height: 0; width: 100%; height: auto; padding: 88px 14px calc(32px + env(safe-area-inset-bottom)); transition: padding .6s cubic-bezier(.22, .8, .2, 1); }
+ body.shop-panel-wide .shop-panel-side { padding-top: 22px; }
+ /* 휴대폰: 사진은 정보 위에 놓고 옆으로 넘깁니다. */
+ .shop-panel-gallery { --photo: calc(var(--shop-panel-wide) - 28px); width: var(--shop-panel-wide); height: 0; flex-direction: row; align-items: flex-start; gap: 10px; padding: 0 14px; overflow: auto hidden; touch-action: pan-x; transition: height .6s cubic-bezier(.22, .8, .2, 1), padding .6s cubic-bezier(.22, .8, .2, 1); }
+ body.shop-panel-wide .shop-panel-gallery { padding-top: 24px; height: calc(var(--photo) * 1.25 + 24px); }
+ .shop-panel-gallery img { width: var(--photo); }
+ .shop-panel-name [lang="de"] { font-size: 30px; }
+ .shop-panel-name .ko { font-size: 19px; }
+ .shop-panel-price { margin-top: 24px; font-size: 20px; }
+ .shop-panel-specs { margin-top: 24px; font-size: 12.5px; line-height: 18px; }
+ .shop-panel-buy { height: 46px; font-size: 14px; }
 }

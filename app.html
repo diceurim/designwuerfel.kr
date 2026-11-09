@@ -6,11 +6,12 @@
   <!-- 아이패드 등 AppleMyungjo가 없는 기기에서도 지시문이 명조체로 보이도록 대체 글꼴을 불러옵니다. 맥에서는 AppleMyungjo가 먼저 쓰입니다. -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400&family=Gothic+A1:wght@300&display=swap">
   <title>Dice Memo</title>
+  <link rel="icon" type="image/png" href="assets/faviconimage_test.png">
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; overflow: hidden; background: #121212; font-family: system-ui, sans-serif; }
+    body { margin: 0; overflow: hidden; background: #121212; font-family: 'Wuerfel Latin', system-ui, sans-serif; }
     canvas { display: block; touch-action: none; }
     :root { --button-size: min(8.1vw, 13vh); }
     .instruction {
@@ -22,12 +23,12 @@
     .instruction[hidden] { display: none; }
     .instruction p, .shop-hint p { margin: 0; letter-spacing: normal; }
     .instruction .ko, .shop-hint .ko {
-      font-family: "AppleMyungjo", "Batang", "Noto Serif KR", serif;
+      font-family: 'Wuerfel Latin', "AppleMyungjo", "Batang", "Noto Serif KR", serif;
       font-size: 14pt; line-height: 16.8pt; font-weight: 400;
       -webkit-text-stroke: 0.5px currentColor;
     }
     .instruction .de, .shop-hint .de {
-      margin-top: 12px; font-family: "Apple SD Gothic Neo", sans-serif;
+      margin-top: 12px; font-family: 'Wuerfel Latin', "Apple SD Gothic Neo", sans-serif;
       font-size: 12pt; line-height: 14.4pt; font-weight: 400;
     }
     /* 안내 문구 속 작은 주사위 면: 화면 구석의 면 버튼과 같은 모양이라 그것이 버튼임을 알려줍니다. 여섯 면이 차례로 바뀝니다. */
@@ -75,7 +76,7 @@
       border-radius: 2px;
       background: #fff;
       color: #222;
-      font: 14px/1.6 system-ui, sans-serif;
+      font: 14px/1.6 'Wuerfel Latin', system-ui, sans-serif;
       resize: none;
       box-shadow: 0 10px 30px #0005;
     }
@@ -85,14 +86,14 @@
     .add-note {
       position: fixed; z-index: 3; bottom: 30px; left: 50%; transform: translateX(-50%);
       border: 1px solid #ffffff35; border-radius: 999px; padding: 9px 15px;
-      background: #121212; color: #a9afbd; font: 11px system-ui, sans-serif;
+      background: #121212; color: #a9afbd; font: 11px 'Wuerfel Latin', system-ui, sans-serif;
       letter-spacing: .08em; cursor: pointer;
     }
     .add-note:hover { color: #fff; border-color: #ffffff75; }
     .add-note:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
     #noteBoard { position: fixed; inset: 0; pointer-events: none; z-index: 2; }
     .note-card { position: absolute; background: white; border-radius: 2px; box-shadow: 0 10px 30px #0005; pointer-events: auto; }
-    .note-card textarea { width: 100%; height: 100%; border: 0; padding: 32px 16px 16px; resize: none; background: transparent; color: #222; font: 14px/1.6 system-ui, sans-serif; border-radius: inherit; }
+    .note-card textarea { width: 100%; height: 100%; border: 0; padding: 32px 16px 16px; resize: none; background: transparent; color: #222; font: 14px/1.6 'Wuerfel Latin', system-ui, sans-serif; border-radius: inherit; }
     .note-card textarea:focus { outline: 2px solid #c9c9c9; outline-offset: 3px; }
     .note-card textarea::placeholder { color: #929292; }
     .note-handle { position: absolute; top: 0; left: 0; right: 28px; height: 26px; line-height: 20px; text-align: center; color: #b4b4b4; cursor: grab; touch-action: none; user-select: none; }
@@ -102,16 +103,16 @@
     .note-close { position: absolute; top: 3px; right: 5px; padding: 0 4px; background: transparent; border: 0; color: #888; font-size: 18px; cursor: pointer; }
     .note-close:hover { color: #222; }
   </style>
-  <link rel="stylesheet" href="writing.css?v=overlay-11">
+  <link rel="stylesheet" href="writing.css?v=overlay-11-haas">
   <script src="paper-curl.js?v=1"></script>
   <script src="seed-notes.js?v=3"></script>
   <script src="writing.js?v=dice-9"></script>
   <script src="p5.min.js"></script>
-  <script src="sketch.js?v=shop-18"></script>
-  <script src="notes.js?v=notes-drag-3"></script>
-  <link rel="stylesheet" href="remember.css?v=5">
+  <script src="sketch.js?v=top-band-1"></script>
+  <script src="notes.js?v=notes-drag-4"></script>
+  <link rel="stylesheet" href="remember.css?v=5-haas">
   <script src="remember.js?v=2"></script>
-  <link rel="stylesheet" href="memo-theme.css?v=6">
+  <link rel="stylesheet" href="memo-theme.css?v=6-haas">
   <link rel="stylesheet" href="find.css?v=4">
   <script src="find.js?v=5"></script>
 <script src="addons/matter.min.js"></script>
@@ -119,10 +120,10 @@
 <link rel="stylesheet" href="lolling.css?v=5">
 <link rel="stylesheet" href="experiment.css?v=14">
 <script src="experiment.js?v=5"></script>
-<link rel="stylesheet" href="ui-style.css?v=shop-type-4">
+<link rel="stylesheet" href="ui-style.css?v=studio-1">
 <!-- 3D 주사위: Blender에서 만든 GLB 모델과 굴림 애니메이션을 three.js로 그립니다. -->
 <script type="importmap">{ "imports": { "three": "./lib/three/three.module.min.js", "three/addons/": "./lib/three/addons/" } }</script>
-<script type="module" src="dice3d.js?v=58-backlight-soft"></script>
+<script type="module" src="dice3d.js?v=67-top-band"></script>
 </head>
 <body>
   <!-- 화면 이름표: 열린 화면에 따라 왼쪽 위 구석에 표시됩니다(시작 화면에서는 숨김). -->
@@ -137,10 +138,48 @@
   <!-- 화면 전환: 시작 화면 ↔ Shop(흰 배경의 실물 주사위) -->
   <button id="shopButton" class="glass-button mode-shop" type="button">Shop</button>
   <button id="memoButton" class="glass-button mode-memo" type="button">Memo</button>
+  <button id="studioButton" class="glass-button mode-studio" type="button">studio</button>
   <section class="shop-hint" aria-label="Shop 사용 안내">
     <p class="ko" lang="ko">주사위를 잡고 밀어서 굴려보세요.<br>위로 힘껏 들어 올렸다 놓으면 던져져요.</p>
     <p class="de" lang="de">Greif den Würfel und schieb ihn an, um ihn zu rollen.<br>Zieh ihn kräftig nach oben und lass ihn los, um ihn zu werfen.</p>
   </section>
+  <!-- Shop 구매 패널: 주사위가 처음 자리보다 왼쪽 칸으로 가면 열리고, 한 칸 더 왼쪽으로 가면 사진이 보이도록 넓어집니다(문구는 임시). -->
+  <div class="top-band">
+    <button id="homeLogo" class="top-band-home" type="button" aria-label="WÜRFEL 시작화면으로 돌아가기"><img class="logo-graphic" src="assets/Graphic%20Logo_variable_re.png" alt=""><img class="logo-brand" src="assets/Brand_Logo.png" alt=""></button>
+  </div>
+  <aside id="shopPanel" class="shop-panel" aria-label="Lampe 구매" aria-hidden="true" inert>
+    <div class="shop-panel-ruler" aria-hidden="true"></div>
+    <div class="shop-panel-gallery" tabindex="0" aria-label="제품 사진">
+      <img src="assets/productimage01.jpeg" alt="Lampe 전체 모습" loading="lazy" decoding="async">
+      <img src="assets/productimage02.jpeg" alt="패널의 숫자 5 부분을 가까이에서 본 모습" loading="lazy" decoding="async">
+      <img src="assets/productimage03.jpeg" alt="여섯 면을 펼친 전개도" loading="lazy" decoding="async">
+    </div>
+    <div class="shop-panel-side">
+    <div class="shop-panel-info">
+    <h2 class="shop-panel-name"><span lang="de">Lampe</span><span class="ko" lang="ko">람페</span></h2>
+    <p class="shop-panel-price">₩320,000<span class="shop-panel-de" lang="de">210 €</span></p>
+    <ul class="shop-panel-specs">
+      <li>큐브 실루엣</li>
+      <li>8개 새틴 메탈 모듈</li>
+      <li>6개 주사위 패널</li>
+      <li>자석 고정 조립 방식</li>
+      <li>내부에 위치 감지 센서 삽입</li>
+      <li>배터리 충전</li>
+      <li>대한민국 제작</li>
+    </ul>
+    <ul class="shop-panel-specs shop-panel-specs-de shop-panel-de" lang="de">
+      <li>Kubische Silhouette</li>
+      <li>8 Module aus satiniertem Metall</li>
+      <li>6 Würfelpaneele</li>
+      <li>Magnetische Montage</li>
+      <li>Integrierter Lagesensor</li>
+      <li>Wiederaufladbarer Akku</li>
+      <li>Hergestellt in Südkorea</li>
+    </ul>
+    </div>
+    <button class="shop-panel-buy" type="button">카트에 추가</button>
+    </div>
+  </aside>
   <nav class="face-buttons left" aria-label="W ü r">
     <button class="face-button" data-face="1" type="button" aria-label="W"><img src="assets/face-1.png" alt=""></button>
     <button class="face-button" data-face="2" type="button" aria-label="ü"><img src="assets/face-2.png" alt=""></button>

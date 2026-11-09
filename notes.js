@@ -17,7 +17,7 @@ function setupManualNotes(canvasElement) {
     const stagger = (manualNoteCounter++ % 5) * 18;
     const size = manualNoteSize();
     if (die.left - 12 >= size + 20) {
-      createManualNote(die.left - size / 2 - 20 - stagger, height / 2 + 5 + stagger);
+      createManualNote(die.left - size / 2 - 20 - stagger, height / 2 + 5 + topBandHeight / 2 + stagger);
     } else {
       // 작은 화면에서는 새 메모가 주사위를 가리지 않도록 위쪽 여백에 배치합니다.
       createManualNote(width / 2 + stagger, die.top - size / 2 - 20 - stagger);
@@ -118,7 +118,7 @@ function saveManualNotes() {
 function moveManualNote(note, left, top) {
   const box = note.element.getBoundingClientRect();
   const x = Math.max(8, Math.min(width - box.width - 8, left));
-  const y = Math.max(8, Math.min(height - box.height - 8, top));
+  const y = Math.max(topBandHeight + 8, Math.min(height - box.height - 8, top));
   note.element.style.left = `${x}px`;
   note.element.style.top = `${y}px`;
   note.x = (x + box.width / 2) / width;

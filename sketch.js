@@ -1,13 +1,4 @@
-// 각 면은 독립된 2D 텍스처입니다. 나중에 아래 경로만 채우면 이미지로 교체됩니다.
-// 예: ['assets/face-1.png', 'assets/face-2.png', ... "assets/face-6.png"]
-const FACE_IMAGE_PATHS = [
-  'assets/face-1.png',
-  'assets/face-2.png',
-  'assets/face-3.png',
-  'assets/face-4.png',
-  'assets/face-5.png',
-  "assets/face-6.png",
-];
+// 주사위 면의 방향(그리기는 dice3d.js의 3D 모델이 맡고, 여기 값은 결과 면과 자세 계산에 씁니다).
 const FACE_LAYOUT = [
   { value: 1, rx: (Math.PI / 2), ry: 0, normal: [0, -1, 0] },
   { value: 6, rx: -Math.PI / 2, ry: 0, normal: [0, 1, 0] },
@@ -23,8 +14,17 @@ let assetsReady = false;
 let writingViewProgress = 0;
 // 기록 화면에서 왼쪽 아래로 옮겨 그린 주사위가 시작화면 위치에서 얼마나 이동했는지(px).
 let diceScreenShift = [0, 0];
+// Shop 구매 패널이 넓게 열리면 주사위 공간이 왼쪽으로 좁아집니다. 바닥과 주사위를 함께 옮기는 화면 x 이동량(px)과 그 목표값입니다.
+let shopRoomShift = 0;
+let shopRoomGoal = 0;
+// 시작 화면과 Shop 화면 위쪽 띠의 높이(px, 휴대폰은 띠가 없어 0). 주사위 공간은 이 띠 아래만 씁니다.
+let topBandHeight = 0;
+let topBandProgress = 1;   // 기록 화면에서는 띠가 없어지므로 0으로 옮겨 갑니다.
+let sceneDrawn = false;    // p5가 위치를 한 번 계산한 뒤부터 3D 주사위를 그립니다.
 // 지금 주사위를 그리는 배율. 휴대폰에서 화면이 열리면 작아집니다(dice3d.js도 같은 값을 씁니다).
-let diceViewScale = 1;
+// 화면 크기에 맞춘 주사위 배율. 3D 주사위가 p5의 첫 프레임보다 먼저 그려질 수 있어 처음부터 실제 값으로 시작합니다.
+const viewScaleFor = (w, h) => Math.min(w / 520, h / 760, 1.25);
+let diceViewScale = viewScaleFor(innerWidth, innerHeight) || 1;
 // 휴대폰(폭 600px 이하)에서는 화면이 열리면 주사위를 이 비율로 줄여 왼쪽 아래 구석에 둡니다.
 const PHONE_DOCK_SCALE = .55;
 // Shop 화면: 흰 배경에 툰 셰이딩 없는 실물 주사위만 놓입니다. shopProgress는 배경이 바뀌는 정도(0 → 1)입니다.
@@ -43,6 +43,7 @@ const POOL_PEAK_MIN = 0.35;
 // 윗면 1은 조명이 꺼진 상태(turn off). 단계 0(윗면 1) → 1, 단계 0.2(윗면 2) 이상 → 0으로 부드럽게 바뀝니다.
 const lightOff = level => 1 - Math.min(1, Math.max(0, level / 0.2)) ** 2 * (3 - 2 * Math.min(1, Math.max(0, level / 0.2)));
 let lastHintInk = '';
+let lastBandLook = '';
 // Shop 방의 색감(고정)과 주사위 둘레 바닥 빛의 색감(고정). 밝기 단계에 따라 명도만 바뀝니다.
 const SHOP_ROOM_HUE = 222, SHOP_ROOM_SAT = 8;
 const SHOP_GLOW_HUE = 34, SHOP_GLOW_SAT = 45;
@@ -83,9 +84,6 @@ const FLOOR_FRAG = `
     gl_FragColor = vec4(mix(uMemo, room, uShop), 1.0);
   }`;
 const colorVec = c => [red(c) / 255, green(c) / 255, blue(c) / 255];
-let faceShader;
-let textures = [];
-let loadedFaces = [];
 let diceRotation = [0, -Math.PI / 2, 0];
 let positionX = 0;
 let positionZ = 0;
@@ -99,47 +97,8 @@ const MEMO_STORAGE_KEY = 'dice-w-memo-v1';
 const IS_TOUCH = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
 
 async function setup() {
-  // p5.js 2.x에서는 preload 대신 async setup에서 로딩을 기다립니다.
-  const loads = await Promise.allSettled(FACE_IMAGE_PATHS.map(async path => {
-    // 로딩이 일시적으로 실패하면 한 번 재시도합니다. 다른 그래픽으로 대체하지 않습니다.
-    try { return await loadImage(path); }
-    catch (_) { return await loadImage(path); }
-  }));
-  const failed = loads.map((item, i) => item.status === 'rejected' ? FACE_IMAGE_PATHS[i] : null).filter(Boolean);
-  if (failed.length) {
-    document.querySelector('.instruction').textContent = `이미지를 불러오지 못했어요: ${failed.join(', ')}`;
-    console.error('주사위 이미지 로딩 실패:', failed);
-    return;
-  }
-  loadedFaces = loads.map(item => item.value);
   const canvas = createCanvas(windowWidth, windowHeight, WEBGL);
   pixelDensity(Math.min(window.devicePixelRatio || 1, 2));
-  // 한 면의 앞쪽은 원본 이미지, 뒤쪽은 같은 알파 형태의 흰색으로 렌더링합니다.
-  faceShader = createShader(`
-    precision highp float;
-    attribute vec3 aPosition;
-    attribute vec2 aTexCoord;
-    uniform mat4 uModelViewMatrix;
-    uniform mat4 uProjectionMatrix;
-    varying vec2 vTexCoord;
-    void main() {
-      vTexCoord = aTexCoord;
-      gl_Position = uProjectionMatrix * uModelViewMatrix * vec4(aPosition, 1.0);
-    }
-  `, `
-    precision highp float;
-    uniform sampler2D uFaceTexture;
-    varying vec2 vTexCoord;
-    void main() {
-      vec4 pixel = texture2D(uFaceTexture, vTexCoord);
-      // 투명 픽셀이 깊이 버퍼를 가리지 않도록 합니다.
-      if (pixel.a < 0.01) discard;
-      // p5의 Y축 방향에서 plane의 바깥쪽은 시계 방향입니다.
-      vec3 faceColor = gl_FrontFacing ? vec3(1.0) : pixel.rgb;
-      gl_FragColor = vec4(faceColor, pixel.a);
-    }
-  `);
-  textures = loadedFaces.map(prepareImageTexture);
   floorShader = createShader(FLOOR_VERT, FLOOR_FRAG);
   assetsReady = true;
   setupFaceButtons();
@@ -191,16 +150,6 @@ function adaptCopyForTouch() {
   document.querySelector('.instruction .ko').innerHTML = `${icon} 버튼을 눌러 영감을 기록할 수는 있지만,<br>가능한 <u>주사위를 탭</u>해서 굴려보세요`;
   document.querySelector('.instruction .de').innerHTML = `Du kannst deine Inspirationen auch per Tipp auf den ${icon} Button festhalten.<br>Versuch aber, möglichst <u>auf den Würfel zu tippen</u>, um zu würfeln!`;
   document.querySelectorAll('.save-hint').forEach(hint => { hint.textContent = '탭해서 저장하기'; });
-}
-
-// PNG의 알파값을 유지해서 투명한 부분 너머로 장면이 보이도록 합니다.
-// 비정사각형 이미지는 면을 채우도록 정사각형으로 늘어납니다.
-function prepareImageTexture(img) {
-  const g = createGraphics(512, 512);
-  g.pixelDensity(1);
-  g.clear();
-  g.image(img, 0, 0, 512, 512);
-  return g;
 }
 
 function rollDice(requestedFace = null) {
@@ -284,6 +233,18 @@ function draw() {
   const off = lightOff(diceGlowLevel);
   const sceneColor = lerpColor(color('#121212'), lerpColor(roomDark, roomLight, off), shopProgress);
   background(sceneColor);
+  // Shop 위쪽 띠: 윗면 1은 흰 띠에 검정 로고, 그 밖의 숫자는 방의 배경색에 #FAFAFA 로고. 방과 같은 속도로 바뀝니다.
+  if (shopMode) {
+    document.body.classList.toggle('top-band-light', off > 0.5);
+    const band = lerpColor(roomDark, color(255), off);
+    const bandLook = `rgb(${Math.round(red(band))}, ${Math.round(green(band))}, ${Math.round(blue(band))})|${(0.98 * (1 - off)).toFixed(3)}`;
+    if (bandLook !== lastBandLook) {
+      lastBandLook = bandLook;
+      const [bandBg, bandInk] = bandLook.split('|');
+      document.body.style.setProperty('--top-band-bg', bandBg);
+      document.body.style.setProperty('--top-band-ink', bandInk);
+    }
+  }
   // 빛 웅덩이: 중심은 주사위를 따라가고, 반지름은 밝기 단계(윗면 숫자)에 따라 넓어집니다(화면 밖에서는 단계가 멈춰 있음).
   const poolCenter = diceScreenCenter || [width / 2, height / 2];
   const poolRadius = Math.min(width, height) * lerp(POOL_RADIUS_MIN, POOL_RADIUS_MAX, diceGlowLevel);
@@ -311,14 +272,21 @@ function draw() {
   const destination = writingOpen && (writingMode !== 'find' || docked) ? 1 : 0;
   writingViewProgress = lerp(writingViewProgress, destination, 1 - Math.exp(-Math.min(deltaTime, 100) / 170));
   if (Math.abs(writingViewProgress - destination) < .001) writingViewProgress = destination;
-  const viewScale = Math.min(width / 520, height / 760, 1.25) * (docked ? lerp(1, PHONE_DOCK_SCALE, writingViewProgress) : 1);
+  const viewScale = viewScaleFor(width, height) * (docked ? lerp(1, PHONE_DOCK_SCALE, writingViewProgress) : 1);
   diceViewScale = viewScale;
   const halfSize = DICE_SIZE * viewScale * .78;
   const targetX = lollingWorld ? lollingWorld.dice.position.x : docked ? halfSize + 16 : Math.max(width * .082, halfSize + 20) + 30; //오른쪽으로 30위
   const targetY = lollingWorld ? lollingWorld.dice.position.y : docked ? height - halfSize - 16 : height - Math.max(height * .13, halfSize + 16) - 30; // 위로 30위
-  const offsetX = (targetX - width / 2) * writingViewProgress / viewScale;
-  const screenOffset = (5 - (targetY - height / 2 + 5) * writingViewProgress) / viewScale;
-  diceScreenShift = [(targetX - width / 2) * writingViewProgress, (targetY - height / 2 - 5) * writingViewProgress];
+  shopRoomShift = lerp(shopRoomShift, shopRoomGoal, 1 - Math.exp(-Math.min(deltaTime, 100) / 150));
+  if (Math.abs(shopRoomShift - shopRoomGoal) < .5) shopRoomShift = shopRoomGoal;
+  const offsetX = ((targetX - width / 2) * writingViewProgress + shopRoomShift) / viewScale;
+  if (!writingOpen) topBandHeight = document.querySelector('.top-band').offsetHeight;
+  topBandProgress = lerp(topBandProgress, writingOpen ? 0 : 1, 1 - Math.exp(-Math.min(deltaTime, 100) / 170));
+  if (Math.abs(topBandProgress - (writingOpen ? 0 : 1)) < .001) topBandProgress = writingOpen ? 0 : 1;
+  const roomDown = topBandHeight / 2 * topBandProgress;   // 띠 아래 공간의 가운데로 바닥과 주사위를 내립니다.
+  const screenOffset = (5 - (targetY - height / 2 + 5) * writingViewProgress - roomDown) / viewScale;
+  diceScreenShift = [(targetX - width / 2) * writingViewProgress + shopRoomShift, (targetY - height / 2 - 5) * writingViewProgress + roomDown];
+  sceneDrawn = true;
   ortho(-width / (2 * viewScale) - offsetX, width / (2 * viewScale) - offsetX,
     -height / (2 * viewScale) - screenOffset,
     height / (2 * viewScale) - screenOffset, 0.1, 3000);
@@ -350,7 +318,7 @@ function draw() {
     plane(FLOOR_SIZE, FLOOR_SIZE);
   }
   pop();
-  for (let i = writingOpen || shopProgress === 1 ? 0 : 10; i > 0; i--) {
+  for (let i = writingOpen || shopProgress === 1 || !window.glbDiceReady ? 0 : 10; i > 0; i--) {
     push();
     // Y축은 아래 방향: 밑면(150) < 그림자(150.32~150.5) < 바닥(151).
     // 그림자가 밑면 앞에서 깊이 버퍼를 차지하지 않도록 바닥 쪽에 배치합니다.
@@ -363,7 +331,7 @@ function draw() {
   }
   // Shop 화면의 그림자: 위와 같은 자리·모양이지만 번지지 않고 가장자리가 또렷한 한 겹입니다.
   // 번진 그림자 겹(150.32~150.5)보다 살짝 위(150.25)에 두어 깊이 비교에서 가려지지 않게 합니다.
-  if (shopProgress > 0 && !writingOpen) {
+  if (shopProgress > 0 && !writingOpen && window.glbDiceReady) {
     push();
     translate(positionX, FLOOR_Y + 0.25, positionZ);
     rotateX(HALF_PI);
@@ -372,25 +340,7 @@ function draw() {
     ellipse(0, 0, size, size, 72);
     pop();
   }
-  // 3D 주사위(dice3d.js)를 불러왔으면 그쪽이 주사위를 그리고, 여기서는 바닥 그림자만 남깁니다.
-  if (window.glbDiceReady) return;
-  push();
-  translate(positionX, FLOOR_Y - supportHeight() - lift, positionZ);
-  rotateX(diceRotation[0]);
-  rotateY(diceRotation[1]);
-  rotateZ(diceRotation[2]);
-  for (const face of FACE_LAYOUT) {
-    push();
-    rotateY(face.ry);
-    rotateX(face.rx);
-    translate(0, 0, DICE_SIZE / 2);
-    shader(faceShader);
-    faceShader.setUniform('uFaceTexture', textures[face.value - 1]);
-    plane(DICE_SIZE, DICE_SIZE);
-    resetShader();
-    pop();
-  }
-  pop();
+  // 주사위 자체는 dice3d.js가 그리고, 여기서는 바닥과 그림자만 그립니다.
 }
 
 function keyPressed(event) {
@@ -495,7 +445,7 @@ function positionMemo() {
   memoElement.style.width = `${noteSize}px`;
   memoElement.style.height = `${noteSize}px`;
   memoElement.style.left = `${Math.max(8, width / 2 - diceWidth / 2 - gap - noteSize + memoOffsetX)}px`;
-  memoElement.style.top = `${height / 2 + 5 - noteSize / 2}px`;
+  memoElement.style.top = `${height / 2 + 5 + topBandHeight / 2 - noteSize / 2}px`;
   memoElement.style.padding = noteSize < 120 ? '8px' : '16px';
 }
 
@@ -565,6 +515,7 @@ function setActiveFace(value) {
 function setupModeButtons() {
   document.getElementById('shopButton').addEventListener('click', () => setShopMode(true));
   document.getElementById('memoButton').addEventListener('click', () => setShopMode(false));
+  document.getElementById('homeLogo').addEventListener('click', () => setShopMode(false));   // 띠 가운데 로고: 시작 화면으로
 }
 function setShopMode(on) {
   if (writingOpen) return;
