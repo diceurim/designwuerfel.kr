@@ -326,6 +326,17 @@ function renderWithBacklight(strength) {
   drawScreenPass(rimPass, null);
 }
 
+function updateCamera() {
+  const scale = diceViewScale;
+  const shiftX = diceScreenShift[0] / scale, shiftY = (diceScreenShift[1] + 5) / scale;
+  camera.left = -innerWidth / (2 * scale) - shiftX;
+  camera.right = innerWidth / (2 * scale) - shiftX;
+  camera.top = innerHeight / (2 * scale) + shiftY;
+  camera.bottom = -innerHeight / (2 * scale) + shiftY;
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld();
+}
+
 function render() {
   if (!sceneDrawn) return;   // p5가 주사위 자리(띠 아래 가운데)를 정하기 전에는 그리지 않습니다.
   // 창 크기가 바뀌는 도중의 resize 이벤트만 받고 끝난 경우에도 캔버스가 화면 크기를 따라가게 합니다.
@@ -355,14 +366,8 @@ function render() {
   }
   // 화면 크기에 맞춘 크기와, 기록 화면에서 왼쪽 아래로 옮겨 가는 이동을 p5와 똑같이 맞춥니다.
   // (Shop의 화면 경계 판정이 이번 프레임의 화면 크기를 쓰도록 updateShop보다 먼저 맞춥니다.)
-  const scale = diceViewScale;
-  const shiftX = diceScreenShift[0] / scale, shiftY = (diceScreenShift[1] + 5) / scale;
-  camera.left = -innerWidth / (2 * scale) - shiftX;
-  camera.right = innerWidth / (2 * scale) - shiftX;
-  camera.top = innerHeight / (2 * scale) + shiftY;
-  camera.bottom = -innerHeight / (2 * scale) + shiftY;
-  camera.updateProjectionMatrix();
-  camera.updateMatrixWorld();
+  updateCamera();
+  if (shopMode && !wasShop) { startShop(); updateCamera(); }   // 시작 자리는 카메라를 맞춘 뒤에 계산합니다.
   updateShop();
   // 휴대폰에서 구석으로 내려간 작은 주사위는 스크롤되는 내용에 가려지지 않게 화면 위층에 그립니다.
   renderer.domElement.style.zIndex = innerWidth <= 600 && !lollingWorld && writingViewProgress > .5 ? '6' : '1';
@@ -574,16 +579,65 @@ function setShopPanel(stage) {
 // 판정은 손으로 굴리기 시작하는 순간에 합니다(프레임이 밀려 굴림이 한 프레임에 끝나도 놓치지 않게).
 function applyManualTip(tip) {
   const [dx, dz] = tip.dir, column = shopCell[0] + dx;
+  document.body.classList.remove('shop-at-start');
   if (shopWideCell && dx > 0) shopWideCell = null;
   else if (!shopWideCell && dx < 0 && column < -1.25) { shopWideCell = [column, shopCell[1]]; tip.opensWide = true; }
   // 넓게 열린 동안(데스크톱) 위아래로 굴리면 사진도 같은 타이밍으로 넘어갑니다.
   if (shopWideCell && dz && innerWidth > 600) tip.photoScroll = photoScrollFor(dz);
 }
-function updateShopPanel(off) {
+// Shop에 들어올 때(데스크톱): 구매 패널을 넓게 연 상태에서, 윗면 1인 주사위가 좁아진 공간의 가운데에서 시작합니다.
+// 패널이 열리는 동안 주사위는 화면 가운데에서 그 자리로 미끄러져 갑니다.
+const SHOP_START_COLUMN = -2;
+const shopStartHint = document.querySelector('.shop-start-hint');
+let throwingHome = false;
+// Shop에서 던지면(데스크톱) 주사위가 시작 자리로 날아가 윗면 1로 떨어지고, 패널과 사진도 시작 상태로 돌아갑니다.
+function throwShopDice() {
+  if (innerWidth <= 600) { rollDice(); return; }
+  rollDice(1);
+  if (!throwState) return;
+  setActiveFace(null);
+  throwState.toStart = true;
+  throwState.endX = SHOP_START_COLUMN * DICE_SIZE;
+  throwState.endZ = 0;
+  shopCell = [SHOP_START_COLUMN, 0];
+  shopWideCell = shopCell.slice();
+  shopGallery.scrollTo({ top: 0, behavior: 'smooth' });
+  throwingHome = true;
+  document.body.classList.remove('shop-at-start');
+}
+// restart: Shop 안에서 로고를 눌러 돌아올 때. 주사위는 지금 화면 자리에서 시작 자리로 미끄러져 가고, 배경 밝기와 사진도 부드럽게 돌아갑니다.
+function startShop(restart = false) {
+  if (innerWidth <= 600) return;
+  const fromX = restart && diceScreenCenter ? diceScreenCenter[0] : innerWidth / 2;
+  if (throwState) { throwState = null; currentRoll = null; lift = 0; }
+  diceRotation = landingRotation(1);
+  faceQuaternion = topFaceQuaternion(diceRotation);
+  if (!restart) { shownGlow = 0; diceGlowLevel = 0; }
+  shopYaw = REST_YAWS[0];
+  shopCell = [SHOP_START_COLUMN, 0];
+  shopWideCell = shopCell.slice();
+  shopGallery.scrollTo({ top: 0, behavior: restart ? 'smooth' : 'auto' });
+  throwingHome = false;
+  document.body.classList.add('shop-at-start');
+  shopRoomGoal = roomRight() / 2 - (cellScreen(shopWideCell).x - shopRoomGoal);
+  shopRoomShift = fromX - roomRight() / 2 + shopRoomGoal;
+  diceScreenShift[0] = shopRoomShift;
+  lastShopSize = innerWidth + 'x' + innerHeight;
+}
+// 띠 가운데 로고: Shop 화면에서는 Shop 시작 상태로 돌아갑니다(Memo 화면은 이미 시작 화면입니다).
+document.getElementById('homeLogo').addEventListener('click', () => {
+  if (!shopMode || !wasShop) return;
+  tipState = null; drag = null; heldLift = 0;
+  document.body.style.cursor = '';
+  startShop(true);
+});
+function updateShopPanel() {
   const column = shopCell[0] + (tipState ? tipState.dir[0] : 0);
+  if (throwingHome && !throwState) { throwingHome = false; document.body.classList.add('shop-at-start'); }
+  if (shopWideCell) shopStartHint.style.left = `${roomRight() / 2}px`;
   setShopPanel(shopWideCell ? 2 : column < -0.25 ? 1 : 0);
-  // 패널이 열려 있고 윗면이 1(흰 배경)이면 패널을 밝게 뒤집습니다.
-  if (shopPanelStage > 0) document.body.classList.toggle('shop-panel-light', off > 0.5);
+  // 패널 뒤로 비치는 방이 밝으면 글자를 검정으로 바꿉니다(문턱값을 둘로 나눠 경계에서 깜빡이지 않게 합니다).
+  if (shopPanelStage > 0) document.body.classList.toggle('shop-panel-light', shopPanelBack > (document.body.classList.contains('shop-panel-light') ? 0.5 : 0.58));
   // 넓게 열리면 그 칸이 남은 공간의 가운데에 오도록 바닥과 주사위를 함께 옮깁니다.
   shopRoomGoal = shopWideCell ? roomRight() / 2 - (cellScreen(shopWideCell).x - shopRoomGoal) : 0;
 }
@@ -594,7 +648,8 @@ function updateShop() {
   if (!shopMode) {
     // 시작 화면으로 돌아가면 가운데 칸, 원래 크기로 되돌립니다.
     if (wasShop) {
-      shopWideCell = null; shopRoomGoal = 0;
+      shopWideCell = null; shopRoomGoal = 0; throwingHome = false;
+      document.body.classList.remove('shop-at-start');
       setShopPanel(0);
       wasShop = false; shopCell = [0, 0]; tipState = null; drag = null; heldLift = 0; shopYaw = 0;
       if (!throwState) { positionX = 0; positionZ = 0; lift = 0; }
@@ -610,6 +665,7 @@ function updateShop() {
   keepInsideAfterResize();
   const rootQuaternion = root.getWorldQuaternion(new THREE.Quaternion());
   const center = new THREE.Vector3(shopCell[0] * DICE_SIZE, HALF, shopCell[1] * DICE_SIZE);
+  if (throwState?.toStart) center.set(positionX, HALF, positionZ);   // 시작 자리로 날아가는 동안에는 던지기 궤적을 따라갑니다.
   let scale = depthScale(center.z);
   if (tipState) {
     // 바닥에 닿은 앞쪽 모서리를 축으로 90° 넘어갑니다(벽에 막히면 살짝 들렸다 돌아옴).
@@ -703,7 +759,7 @@ function updateShop() {
   ACRYLIC.emissiveIntensity = 1 + 0.5 * diceLevel;
   // 윗면 1(조명 꺼짐): 미색 아이보리 패널과 새틴 금속(덜 반짝이는 은은한 광)으로 보입니다. 2 이상으로 가면 부드럽게 원래대로.
   const off = 1 - THREE.MathUtils.smoothstep(shownGlow, 0, 0.2);
-  updateShopPanel(off);
+  updateShopPanel();
   OFF_LOOK.value = off;
   FROST_MILK.value = OFF_FROST.milk; FROST_RIM.value = OFF_FROST.rim; FROST_SEE.value = OFF_FROST.seeThrough;
   // 뒤가 비치려면 투명 재질이어야 합니다(비침이 있을 때만 켬).
@@ -750,7 +806,7 @@ function endDrag(event, cancelled) {
   if (cancelled) return;
   if (d.lifting) {
     // 충분히 들어 올렸다가 놓으면 던집니다. 덜 들었으면 그냥 내려놓습니다.
-    if (heldLift > THROW_LIFT) { throwLift = heldLift; heldLift = 0; rollDice(); }
+    if (heldLift > THROW_LIFT) { throwLift = heldLift; heldLift = 0; throwShopDice(); }
     return;
   }
   const dx = event.clientX - d.x, dy = event.clientY - d.y;

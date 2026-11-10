@@ -6,7 +6,7 @@
   <!-- 아이패드 등 AppleMyungjo가 없는 기기에서도 지시문이 명조체로 보이도록 대체 글꼴을 불러옵니다. 맥에서는 AppleMyungjo가 먼저 쓰입니다. -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400&family=Gothic+A1:wght@300&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400&family=Gothic+A1:wght@300;400&display=swap">
   <title>Dice Memo</title>
   <link rel="icon" type="image/png" href="assets/faviconimage_test.png">
   <style>
@@ -108,7 +108,7 @@
   <script src="seed-notes.js?v=3"></script>
   <script src="writing.js?v=dice-9"></script>
   <script src="p5.min.js"></script>
-  <script src="sketch.js?v=top-band-1"></script>
+  <script src="sketch.js?v=panel-glass-1"></script>
   <script src="notes.js?v=notes-drag-4"></script>
   <link rel="stylesheet" href="remember.css?v=5-haas">
   <script src="remember.js?v=2"></script>
@@ -120,10 +120,10 @@
 <link rel="stylesheet" href="lolling.css?v=5">
 <link rel="stylesheet" href="experiment.css?v=14">
 <script src="experiment.js?v=5"></script>
-<link rel="stylesheet" href="ui-style.css?v=hint-size-1">
+<link rel="stylesheet" href="ui-style.css?v=panel-glass-1">
 <!-- 3D 주사위: Blender에서 만든 GLB 모델과 굴림 애니메이션을 three.js로 그립니다. -->
 <script type="importmap">{ "imports": { "three": "./lib/three/three.module.min.js", "three/addons/": "./lib/three/addons/" } }</script>
-<script type="module" src="dice3d.js?v=67-top-band"></script>
+<script type="module" src="dice3d.js?v=72-panel-glass"></script>
 </head>
 <body>
   <!-- 화면 이름표: 열린 화면에 따라 왼쪽 위 구석에 표시됩니다(시작 화면에서는 숨김). -->
@@ -143,9 +143,13 @@
     <p class="ko" lang="ko">주사위를 잡고 밀어서 굴려보세요.<br>위로 힘껏 들어 올렸다 놓으면 던져져요.</p>
     <p class="de" lang="de">Greif den Würfel und schieb ihn an, um ihn zu rollen.<br>Zieh ihn kräftig nach oben und lass ihn los, um ihn zu werfen.</p>
   </section>
+  <section class="shop-hint shop-start-hint" aria-label="Shop 시작 안내">
+    <p class="ko" lang="ko">주사위를 오른쪽으로 밀어보세요.</p>
+    <p class="de" lang="de">Schieb den Würfel nach rechts.</p>
+  </section>
   <!-- Shop 구매 패널: 주사위가 처음 자리보다 왼쪽 칸으로 가면 열리고, 한 칸 더 왼쪽으로 가면 사진이 보이도록 넓어집니다(문구는 임시). -->
   <div class="top-band">
-    <button id="homeLogo" class="top-band-home" type="button" aria-label="WÜRFEL 시작화면으로 돌아가기"><img class="logo-graphic" src="assets/Graphic%20Logo_variable_re.png" alt=""><img class="logo-brand" src="assets/Brand_Logo.png" alt=""></button>
+    <button id="homeLogo" class="top-band-home" type="button" aria-label="WÜRFEL 현재 화면의 처음으로 돌아가기"><img class="logo-graphic" src="assets/Graphic%20Logo_variable_re.png" alt=""><img class="logo-brand" src="assets/Brand_Logo.png" alt=""></button>
   </div>
   <aside id="shopPanel" class="shop-panel" aria-label="Lampe 구매" aria-hidden="true" inert>
     <div class="shop-panel-ruler" aria-hidden="true"></div>

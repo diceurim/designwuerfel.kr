@@ -44,6 +44,7 @@ const POOL_PEAK_MIN = 0.35;
 const lightOff = level => 1 - Math.min(1, Math.max(0, level / 0.2)) ** 2 * (3 - 2 * Math.min(1, Math.max(0, level / 0.2)));
 let lastHintInk = '';
 let lastBandLook = '';
+let shopPanelBack = 0;   // 구매 패널 글자 뒤로 비쳐 보이는 밝기(0~1). 반투명 패널이라 방의 밝기가 그대로 투과됩니다.
 // Shop 방의 색감(고정)과 주사위 둘레 바닥 빛의 색감(고정). 밝기 단계에 따라 명도만 바뀝니다.
 const SHOP_ROOM_HUE = 222, SHOP_ROOM_SAT = 8;
 const SHOP_GLOW_HUE = 34, SHOP_GLOW_SAT = 45;
@@ -261,6 +262,12 @@ function draw() {
   const hintBg = hintBox ? [hintBox.left, hintBox.left + hintBox.width / 2, hintBox.right].reduce((sum, x) => sum + roomLightnessAt(x, hintY), 0) / 3 : 1;
   const hintInk = hintBg >= 0.9 ? '#6f7178' : hintBg >= 0.5 ? '#2c2d31' : hintBg >= 0.25 ? '#f2f3f6' : '#b4b6bc';
   if (hintInk !== lastHintInk) { lastHintInk = hintInk; document.body.style.setProperty('--shop-hint-ink', hintInk); }
+  if (shopMode) {
+    const info = document.querySelector('.shop-panel-info').getBoundingClientRect();
+    let sum = 0;
+    for (const u of [0, .5, 1]) for (const v of [0, .5, 1]) sum += roomLightnessAt(info.left + info.width * u, info.top + info.height * v);
+    shopPanelBack = 0.12 + 0.88 * sum / 9;   // 흰색 12% 유리(ui-style.css의 .shop-panel 배경)를 통과한 밝기
+  }
   positionMemo();
   // 카메라 시선을 정지한 주사위 중심에 맞춰 모든 화면 크기에서 중앙에 배치합니다.
   const centerY = FLOOR_Y - DICE_SIZE / 2;
@@ -515,7 +522,6 @@ function setActiveFace(value) {
 function setupModeButtons() {
   document.getElementById('shopButton').addEventListener('click', () => setShopMode(true));
   document.getElementById('memoButton').addEventListener('click', () => setShopMode(false));
-  document.getElementById('homeLogo').addEventListener('click', () => setShopMode(false));   // 띠 가운데 로고: 시작 화면으로
 }
 function setShopMode(on) {
   if (writingOpen) return;
