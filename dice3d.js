@@ -246,9 +246,9 @@ function resize() {
 }
 addEventListener('resize', resize);
 
-// Shop 화면(배경이 절반 넘게 밝아졌을 때)에서는 툰 셰이딩과 흰 외곽선을 빼고 원래 재질로 보여줍니다.
+// Shop 진입 첫 프레임부터 제품 재질을 적용합니다. 복귀할 때는 기존 배경 전환 시점을 따릅니다.
 function updateLook() {
-  const real = shopProgress > .5;
+  const real = shopMode || shopProgress > .5;
   if (real === showingReal) return;
   showingReal = real;
   for (const mesh of toonMeshes) mesh.material = real ? mesh.userData.realMaterial : mesh.userData.toonMaterial;
@@ -286,7 +286,7 @@ const SUN_HOME = new THREE.Vector3(-150, 700, 350), SUN_CATALOG = new THREE.Vect
 const FILL_HOME = new THREE.Vector3(-60, 260, 800), FILL_CATALOG = new THREE.Vector3(300, 180, 800);
 const FILL_HOME_COLOR = new THREE.Color(0xfff6ec), FILL_CATALOG_COLOR = new THREE.Color(0xffc8a2);
 function updateCatalogLook() {
-  const look = catalogLook(), real = shopProgress > .5;
+  const look = catalogLook(), real = shopMode || shopProgress > .5;
   // 주광은 왼쪽 위 앞에서(왼쪽 면과 윗면이 밝게), 보조광은 약하고 따뜻하게(오른쪽 면은 살구빛 그늘).
   sun.position.copy(SUN_HOME).lerp(SUN_CATALOG, look);
   fillLight.position.copy(FILL_HOME).lerp(FILL_CATALOG, look);
@@ -975,7 +975,7 @@ function updateShop() {
     material.roughness = THREE.MathUtils.lerp(0.45, OFF_STEEL_ROUGHNESS, off);
     material.envMapIntensity = THREE.MathUtils.lerp(1.6, OFF_STEEL_SHINE, off);
   }
-  if (shopProgress > .5) innerLight.intensity = (2.2 + 3 * diceLevel) * (1 - 0.6 * off);
+  if (showingReal) innerLight.intensity = (2.2 + 3 * diceLevel) * (1 - 0.6 * off);
 }
 
 const raycaster = new THREE.Raycaster(), pointerNdc = new THREE.Vector2();
