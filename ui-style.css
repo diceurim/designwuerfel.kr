@@ -350,3 +350,37 @@ body.shop-at-start .shop-hint.shop-start-hint { opacity: 1; }
  }
  body.shop-panel-light .shop-panel-buy { border-color: #121212; }
 }
+
+/* ───────── Shop 제품 목록(데스크톱 전용) ─────────
+   띠 아래에 흰 화면을 깔고, 람페 칸의 사진 영역(.catalog-window)만 비워 둡니다. 그 자리로 뒤의 3D 주사위와 바닥이 보입니다.
+   칸 사이 경계는 1px 선, 칸 아래에는 왼쪽 끝에 제품 이름(독일어·한국어), 오른쪽 끝에 가격(원·유로)을 둡니다. */
+.catalog { display: none; }
+@media (min-width: 601px) {
+ body.is-shop .catalog {
+  display: flex; flex-direction: column; position: fixed; z-index: 3; top: var(--top-band); left: 0; right: 0; bottom: 0;
+  opacity: 0; visibility: hidden; transition: opacity .4s, visibility 0s linear .4s;
+  font-family: 'Wuerfel Latin', 'Gothic A1', "Apple SD Gothic Neo", sans-serif; color: #121212;
+ }
+ body.is-shop.shop-catalog .catalog { opacity: 1; visibility: visible; transition: opacity .4s, visibility 0s; }
+ .catalog-row { display: flex; flex: none; border-top: 1px solid #121212; }
+ .catalog-item { display: flex; flex-direction: column; flex: none; width: 25vw; border-right: 1px solid #121212; border-bottom: 1px solid #121212; color: inherit; text-decoration: none; }
+ .catalog-item:focus-visible { outline: 2px solid #121212; outline-offset: -4px; }
+ a.catalog-item { cursor: pointer; }
+ .catalog-window, .catalog-image { display: block; width: 100%; aspect-ratio: 4 / 5; max-height: calc(100vh - var(--top-band) - 120px); }
+ .catalog-image { background: #fff; }
+ .catalog-caption { flex: 1; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 18px 20px 22px; background: #fff; font-size: 14px; line-height: 1.45; font-weight: 300; }
+ .catalog-name, .catalog-price { display: flex; flex-direction: column; }
+ .catalog-price { text-align: right; }
+ .catalog-name [lang="de"] { font-weight: 400; }
+ .is-soon .catalog-caption { color: #9a9a9a; }
+ .catalog-fill { flex: 1; background: #fff; }
+ .catalog-rest { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; background: #fff; }
+ /* 목록 아래쪽 인용문: 화면 오른쪽에서 20px 안쪽에서 문장이 끝나고, 크기는 유로 가격과 같습니다. */
+ .catalog-quote { margin: 0; padding: 0 20px; text-align: right; font-size: 14px; line-height: 1.45; font-weight: 300;  letter-spacing: normal; }
+ .catalog-quote:last-child { padding-bottom: 24px; }   /* 인용문은 위아래로 쌓고, 맨 아래 줄만 화면 아래에서 24px 띄웁니다. */
+ /* 목록에서는 띠를 흰색으로 고정하고, Shop 안내 문구는 감춥니다. */
+ body.is-shop.shop-catalog .top-band { background: #fff; border-bottom-color: transparent; }
+ body.is-shop.shop-catalog .logo-brand { filter: none; }
+ body.is-shop.shop-catalog .mode-memo { background: #f2f2f2; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+ body.shop-catalog .shop-hint { display: none; }
+}

@@ -367,7 +367,7 @@ function render() {
   // 화면 크기에 맞춘 크기와, 기록 화면에서 왼쪽 아래로 옮겨 가는 이동을 p5와 똑같이 맞춥니다.
   // (Shop의 화면 경계 판정이 이번 프레임의 화면 크기를 쓰도록 updateShop보다 먼저 맞춥니다.)
   updateCamera();
-  if (shopMode && !wasShop) { startShop(); updateCamera(); }   // 시작 자리는 카메라를 맞춘 뒤에 계산합니다.
+  if (shopMode && !wasShop) { if (shopCatalog) startCatalog(); else startShop(); updateCamera(); }   // 시작 자리는 카메라를 맞춘 뒤에 계산합니다.
   updateShop();
   // 휴대폰에서 구석으로 내려간 작은 주사위는 스크롤되는 내용에 가려지지 않게 화면 위층에 그립니다.
   renderer.domElement.style.zIndex = innerWidth <= 600 && !lollingWorld && writingViewProgress > .5 ? '6' : '1';
@@ -401,7 +401,7 @@ let shownGlow = 0, lastFrame = performance.now();
 const depthScale = z => z < 0 ? 1 + Math.max(z / (2 * DICE_SIZE), -1) * 0.12 : 1 + Math.min(z / DICE_SIZE, 3) * 0.1;
 const UP_AXIS = new THREE.Vector3(0, 1, 0);
 const yawAround = angle => new THREE.Quaternion().setFromAxisAngle(UP_AXIS, angle);
-const shopReady = () => shopMode && shopProgress === 1 && !throwState && !tipState && !writingOpen && window.glbDiceReady;
+const shopReady = () => shopMode && !shopCatalog && shopProgress === 1 && !throwState && !tipState && !writingOpen && window.glbDiceReady;
 
 // 위를 향한 면의 숫자(GLB 모델 기준). 자세를 주지 않으면 지금 보이는 자세로 계산합니다.
 function currentTopFace(q = dice.getWorldQuaternion(new THREE.Quaternion())) {
@@ -544,7 +544,7 @@ function keepInsideAfterResize() {
   const size = innerWidth + 'x' + innerHeight;
   if (size === lastShopSize) return;
   lastShopSize = size;
-  if (tipState || throwState || drag || cellFullyInside(shopCell)) return;
+  if (shopCatalog || tipState || throwState || drag || cellFullyInside(shopCell)) return;
   // 테두리 가장자리 범위까지 벗어난 자리를 먼저 찾고, 없으면 전체가 보이는 첫 자리로 옮깁니다.
   const center = cellAtScreen(roomRight() / 2, (roomBottom() + topBandHeight) / 2);
   let firstInside = null;
@@ -621,14 +621,17 @@ function throwShopDice() {
   document.body.classList.remove('shop-at-start');
 }
 // restart: Shop 안에서 로고를 눌러 돌아올 때. 주사위는 지금 화면 자리에서 시작 자리로 미끄러져 가고, 배경 밝기와 사진도 부드럽게 돌아갑니다.
-function startShop(restart = false) {
+// keepFace: 제품 목록에서 넘어올 때. 목록에서 굴러간 윗면을 그대로 이어 갑니다.
+function startShop(restart = false, keepFace = false) {
   if (innerWidth <= 600) return;
   const fromX = restart && diceScreenCenter ? diceScreenCenter[0] : innerWidth / 2;
   if (throwState) { throwState = null; currentRoll = null; lift = 0; }
-  diceRotation = landingRotation(1);
-  faceQuaternion = topFaceQuaternion(diceRotation);
+  if (!keepFace) {
+    diceRotation = landingRotation(1);
+    faceQuaternion = topFaceQuaternion(diceRotation);
+    shopYaw = REST_YAWS[0];
+  }
   if (!restart) { shownGlow = 0; diceGlowLevel = 0; }
-  shopYaw = REST_YAWS[0];
   shopCell = [SHOP_START_COLUMN, 0];
   shopWideCell = shopCell.slice();
   shopGallery.scrollTo({ top: 0, behavior: restart ? 'smooth' : 'auto' });
@@ -640,13 +643,81 @@ function startShop(restart = false) {
   lastShopSize = innerWidth + 'x' + innerHeight;
 }
 // 띠 가운데 로고: Shop 화면에서는 Shop 시작 상태로 돌아갑니다(Memo 화면은 이미 시작 화면입니다).
+// 데스크톱에서는 제품 상세 화면에서 누르면 제품 목록으로 돌아갑니다.
 document.getElementById('homeLogo').addEventListener('click', () => {
-  if (!shopMode || !wasShop) return;
+  if (!shopMode || !wasShop || shopCatalog) return;
   tipState = null; drag = null; heldLift = 0;
   document.body.style.cursor = '';
-  startShop(true);
+  if (isPhone()) startShop(true); else openCatalog();
 });
+
+// ───────── Shop 제품 목록(데스크톱) ─────────
+// 람페 칸의 사진 영역은 뚫려 있어, 그 뒤로 Shop의 주사위와 바닥이 칸 크기로 줄어 보입니다.
+// 칸에 마우스를 올리면 주사위가 제자리에서 한 번 굴러 다음 윗면으로 넘어가고(배경도 그 숫자의 빛으로 바뀜), 벗어나면 되돌아 굴러옵니다.
+const catalogWindow = document.querySelector('.catalog-window');
+const catalogLampe = document.getElementById('catalogLampe');
+let catalogHover = false, catalogRolled = false;
+function startCatalog() {
+  if (throwState) { throwState = null; currentRoll = null; lift = 0; }
+  diceRotation = landingRotation(1);
+  faceQuaternion = topFaceQuaternion(diceRotation);
+  shownGlow = 0; diceGlowLevel = 0;
+  shopYaw = REST_YAWS[0];
+  shopCell = [0, 0]; shopWideCell = null; tipState = null; drag = null; heldLift = 0;
+  catalogRolled = false;
+  throwingHome = false;
+  document.body.classList.remove('shop-at-start');
+  shopGallery.scrollTo({ top: 0 });
+  lastShopSize = innerWidth + 'x' + innerHeight;
+}
+// 제품 상세 화면에서 목록으로: 주사위는 지금 화면 자리에서 람페 칸으로 미끄러져 갑니다.
+function openCatalog() {
+  const from = diceScreenCenter ? diceScreenCenter.slice() : null;
+  setShopCatalog(true);
+  startCatalog();
+  if (!from) return;
+  const p = cellScreen(shopCell);
+  const shiftY = shopRoomGoalY + from[1] - p.y;
+  shopRoomShift = shopRoomGoal + from[0] - p.x;
+  diceScreenShift[0] = shopRoomShift; diceScreenShift[1] += shiftY - shopRoomShiftY;
+  shopRoomShiftY = shiftY;
+}
+// 목록에서 람페 칸을 누르면 제품 상세 화면으로 넘어갑니다.
+function openDetail() {
+  if (!shopCatalog) return;
+  catalogHover = false;
+  if (tipState?.mode === 'inPlace') {   // 굴러가는 중이면 그 윗면으로 바로 내려놓습니다.
+    const rootQuaternion = root.getWorldQuaternion(new THREE.Quaternion());
+    const axis = UP_AXIS.clone().cross(new THREE.Vector3(tipState.dir[0], 0, tipState.dir[1]));
+    faceQuaternion = rootQuaternion.clone().invert().multiply(new THREE.Quaternion().setFromAxisAngle(axis, Math.PI / 2).multiply(tipState.from));
+    shopYaw = tipState.yawTo;
+    tipState = null;
+  }
+  setShopCatalog(false);
+  startShop(true, true);
+}
+catalogLampe.addEventListener('pointerenter', () => { catalogHover = true; });
+catalogLampe.addEventListener('pointerleave', () => { catalogHover = false; });
+catalogLampe.addEventListener('focus', () => { catalogHover = true; });
+catalogLampe.addEventListener('blur', () => { catalogHover = false; });
+catalogLampe.addEventListener('click', event => { event.preventDefault(); openDetail(); });
+function updateCatalog() {
+  if (isPhone()) { setShopCatalog(false); startShop(); return; }
+  setShopPanel(0);
+  // 주사위가 람페 칸 사진 영역의 가운데에 오도록 바닥과 주사위를 함께 옮깁니다.
+  const r = catalogWindow.getBoundingClientRect();
+  if (r.width) {
+    const p = cellScreen(shopCell);
+    shopRoomGoal = r.left + r.width / 2 - (p.x - shopRoomGoal);
+    shopRoomGoalY = r.top + r.height / 2 - (p.y - shopRoomGoalY);
+  }
+  if (!tipState && !throwState && window.glbDiceReady && shopProgress === 1 && catalogHover !== catalogRolled) {
+    catalogRolled = catalogHover;
+    startTip(catalogHover ? [1, 0] : [-1, 0], false, 'inPlace');
+  }
+}
 function updateShopPanel() {
+  if (shopCatalog) { updateCatalog(); return; }
   const column = shopCell[0] + (tipState ? tipState.dir[0] : 0);
   if (throwingHome && !throwState) { throwingHome = false; document.body.classList.add('shop-at-start'); }
   if (shopWideCell) shopStartHint.style.left = `${roomRight() / 2}px`;
@@ -665,7 +736,7 @@ function updateShop() {
   if (!shopMode) {
     // 시작 화면으로 돌아가면 가운데 칸, 원래 크기로 되돌립니다.
     if (wasShop) {
-      shopWideCell = null; shopRoomGoal = 0; shopRoomGoalY = 0; throwingHome = false;
+      shopWideCell = null; shopRoomGoal = 0; shopRoomGoalY = 0; throwingHome = false; catalogHover = false; catalogRolled = false;
       document.body.classList.remove('shop-at-start');
       setShopPanel(0);
       wasShop = false; shopCell = [0, 0]; tipState = null; drag = null; heldLift = 0; shopYaw = 0;
@@ -692,6 +763,7 @@ function updateShop() {
     const axis = new THREE.Vector3(0, 1, 0).cross(d);
     const pivot = center.clone().add(d.clone().multiplyScalar(HALF)).setY(0);
     center.sub(pivot).applyAxisAngle(axis, eased).add(pivot);
+    if (tipState.mode === 'inPlace') { center.x = shopCell[0] * DICE_SIZE; center.z = shopCell[1] * DICE_SIZE; }   // 제자리에서 굴러 높이만 바뀝니다.
     scale = depthScale(center.z);
     // 넘어가는 동안 멈춤 각도도 이전 숫자의 각도에서 다음 숫자의 각도로 이어서 돌아갑니다(벽에 막혀 들썩일 때는 그대로).
     const progress = (1 - Math.cos(Math.PI * t)) / 2;
@@ -701,7 +773,7 @@ function updateShop() {
     dice.quaternion.copy(rootQuaternion.clone().invert().multiply(turned));
     if (t === 1) {
       if (!tipState.bump) {
-        shopCell = [shopCell[0] + tipState.dir[0], shopCell[1] + tipState.dir[1]];
+        if (tipState.mode !== 'inPlace') shopCell = [shopCell[0] + tipState.dir[0], shopCell[1] + tipState.dir[1]];
         faceQuaternion = rootQuaternion.clone().invert().multiply(new THREE.Quaternion().setFromAxisAngle(axis, Math.PI / 2).multiply(tipState.from));
       }
       // 면이 바닥에 닿는 순간 '탁'
@@ -715,7 +787,7 @@ function updateShop() {
       //    그다음 점대칭 자리 (W − x, H − y)로 옮겨, 같은 방향으로 굴러 들어옵니다(나간 쪽이 앞이면 크게, 들어오는 쪽이 뒤면 작게 보이는 것이 정상).
       // 3) 들어오는 중에는 미리 정한 칸 수만큼만 굴러, 주사위 전체가 화면 안에 들어온 자리에서 멈춥니다.
       //    이 자리에서는 다시 나가기 판정을 하지 않습니다(사용자가 또 테두리 쪽으로 밀 때만).
-      if (!finished.bump) {
+      if (!finished.bump && finished.mode !== 'inPlace') {
         if (finished.mode === 'entering') {
           if (finished.remaining > 1) startTip(finished.dir, false, 'entering', finished.remaining - 1);
           else finishEntering();

@@ -108,7 +108,7 @@
   <script src="seed-notes.js?v=3"></script>
   <script src="writing.js?v=dice-9"></script>
   <script src="p5.min.js"></script>
-  <script src="sketch.js?v=mobile-sheet-2"></script>
+  <script src="sketch.js?v=catalog-2"></script>
   <script src="notes.js?v=notes-drag-4"></script>
   <link rel="stylesheet" href="remember.css?v=5-haas">
   <script src="remember.js?v=2"></script>
@@ -120,10 +120,10 @@
 <link rel="stylesheet" href="lolling.css?v=5">
 <link rel="stylesheet" href="experiment.css?v=14">
 <script src="experiment.js?v=5"></script>
-<link rel="stylesheet" href="ui-style.css?v=mobile-sheet-6">
+<link rel="stylesheet" href="ui-style.css?v=catalog-6">
 <!-- 3D 주사위: Blender에서 만든 GLB 모델과 굴림 애니메이션을 three.js로 그립니다. -->
 <script type="importmap">{ "imports": { "three": "./lib/three/three.module.min.js", "three/addons/": "./lib/three/addons/" } }</script>
-<script type="module" src="dice3d.js?v=74-mobile-sheet"></script>
+<script type="module" src="dice3d.js?v=75-catalog"></script>
 </head>
 <body>
   <!-- 화면 이름표: 열린 화면에 따라 왼쪽 위 구석에 표시됩니다(시작 화면에서는 숨김). -->
@@ -147,6 +147,30 @@
   <section class="shop-hint shop-start-hint" aria-label="Shop 시작 안내">
     <p class="ko" lang="ko">주사위를 오른쪽으로 밀어보세요.</p>
     <p class="de" lang="de">Schieb den Würfel nach rechts.</p>
+  </section>
+  <!-- Shop 제품 목록(데스크톱): Shop에 들어오면 먼저 보입니다. 람페 칸의 사진 영역은 뚫려 있어 뒤의 3D 주사위가 보이고, 누르면 제품 상세 화면으로 넘어갑니다. -->
+  <section id="shopCatalog" class="catalog" aria-label="Shop 제품 목록">
+    <div class="catalog-row">
+      <a id="catalogLampe" class="catalog-item" href="#lampe" aria-label="Lampe 람페, ₩320,000 210 €, 상세 보기">
+        <span class="catalog-window" aria-hidden="true"></span>
+        <span class="catalog-caption">
+          <span class="catalog-name"><span lang="de">Lampe</span><span class="ko" lang="ko">람페</span></span>
+          <span class="catalog-price"><span>₩320,000</span><span lang="de">210 €</span></span>
+        </span>
+      </a>
+      <div class="catalog-item is-soon">
+        <span class="catalog-image" aria-hidden="true"></span>
+        <span class="catalog-caption">
+          <span class="catalog-name"><span lang="en">Coming Soon</span></span>
+          <span class="catalog-price"></span>
+        </span>
+      </div>
+      <div class="catalog-fill"></div>
+    </div>
+    <div class="catalog-rest">
+      <p class="catalog-quote" lang="de">Genie ist das Talent (Naturgabe), welches der Kunst die Regel gibt.&emsp;《Critique of Judgment》</p>
+      <p class="catalog-quote" lang="de">Man muss noch Chaos in sich haben, um einen tanzenden Stern gebären zu können.&emsp;《Also sprach Zarathustra》</p>
+    </div>
   </section>
   <!-- Shop 구매 패널: 주사위가 처음 자리보다 왼쪽 칸으로 가면 열리고, 한 칸 더 왼쪽으로 가면 사진이 보이도록 넓어집니다(문구는 임시). -->
   <div class="top-band">

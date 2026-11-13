@@ -30,6 +30,9 @@ let diceViewScale = viewScaleFor(innerWidth, innerHeight) || 1;
 const PHONE_DOCK_SCALE = .55;
 // Shop 화면: 흰 배경에 툰 셰이딩 없는 실물 주사위만 놓입니다. shopProgress는 배경이 바뀌는 정도(0 → 1)입니다.
 let shopMode = false;
+// Shop 제품 목록(데스크톱): Shop에 들어오면 먼저 보이고, 람페 칸을 누르면 지금의 제품 상세 화면으로 넘어갑니다.
+let shopCatalog = false, catalogProgress = 0, catalogScale = 1;
+const CATALOG_DICE = 0.32;   // 목록 칸의 사진 영역 폭에 대한 주사위 한 변의 비율
 let shopProgress = 0;
 // Shop 화면에서 주사위가 안쪽(뒤)으로 갈수록 작아지는 비율. 그림자 크기도 함께 맞춥니다(dice3d.js가 정합니다).
 let diceDepthScale = 1;
@@ -280,7 +283,12 @@ function draw() {
   const destination = writingOpen && (writingMode !== 'find' || docked) ? 1 : 0;
   writingViewProgress = lerp(writingViewProgress, destination, 1 - Math.exp(-Math.min(deltaTime, 100) / 170));
   if (Math.abs(writingViewProgress - destination) < .001) writingViewProgress = destination;
-  const viewScale = viewScaleFor(width, height) * (docked ? lerp(1, PHONE_DOCK_SCALE, writingViewProgress) : 1);
+  // 제품 목록에서는 주사위를 람페 칸 크기에 맞춰 줄입니다.
+  catalogProgress = lerp(catalogProgress, shopCatalog ? 1 : 0, 1 - Math.exp(-Math.min(deltaTime, 100) / 170));
+  if (Math.abs(catalogProgress - (shopCatalog ? 1 : 0)) < .001) catalogProgress = shopCatalog ? 1 : 0;
+  const catalogWindow = document.querySelector('.catalog-window');
+  if (shopCatalog && catalogWindow && catalogWindow.offsetWidth) catalogScale = catalogWindow.offsetWidth * CATALOG_DICE / DICE_SIZE;
+  const viewScale = lerp(viewScaleFor(width, height) * (docked ? lerp(1, PHONE_DOCK_SCALE, writingViewProgress) : 1), catalogScale, catalogProgress);
   diceViewScale = viewScale;
   const halfSize = DICE_SIZE * viewScale * .78;
   const targetX = lollingWorld ? lollingWorld.dice.position.x : docked ? halfSize + 16 : Math.max(width * .082, halfSize + 20) + 30; //오른쪽으로 30위
@@ -531,7 +539,13 @@ function setShopMode(on) {
   if (writingOpen) return;
   shopMode = on;
   document.body.classList.toggle('is-shop', on);
+  setShopCatalog(on && innerWidth > 600);
   if (!on && !throwState) document.querySelector('.instruction').hidden = false;
+}
+
+function setShopCatalog(on) {
+  shopCatalog = on;
+  document.body.classList.toggle('shop-catalog', on);
 }
 
 function setupFaceButtons() {
