@@ -175,13 +175,23 @@ body.is-shop .shop-hint { display: block; }
 
 /* Shop 한국어 안내 크기 */
 .instruction .ko, .shop-hint .ko { font-size: 12pt; line-height: 14.4pt; -webkit-text-stroke: 0.5px currentColor; }
-.instruction .ko, .shop-hint .ko { font-family: 'Wuerfel Latin', 'Gothic A1', "Apple SD Gothic Neo", sans-serif; }   /* Memo·Shop 지시문 한글 글꼴 */
+.shop-hint .ko { font-family: 'Wuerfel Latin', 'Gothic A1', "Apple SD Gothic Neo", sans-serif; }   /* Shop 지시문 한글 글꼴 */
+.instruction .ko { font-family: "AppleMyungjo", "Batang", "Noto Serif KR", serif; }   /* Memo 지시문 한글 글꼴: 애플명조 */
+.instruction .de { font-family: 'IM Fell English', serif; }   /* Memo 지시문 독일어 글꼴 */
 
 /* 휴대폰: Shop 안내는 한 단계 작게, 아래 여백은 화면 아래 안전 영역(홈 바)만큼 더 띄웁니다. */
 @media (max-width: 600px) {
  .shop-hint { bottom: calc(16px + env(safe-area-inset-bottom)); max-width: 92vw; }
  .instruction .ko, .shop-hint .ko { font-size: 10.5pt; line-height: 13pt; }
  .instruction .de, .shop-hint .de { font-size: 8.5pt; line-height: 11pt; margin-top: 6px; }
+ .shop-hint .ko { font-size: 9pt; line-height: 11.5pt; }   /* 휴대폰 Shop 안내 한국어 크기 */
+ .shop-hint .de { font-size: 7pt; line-height: 9.5pt; }    /* 휴대폰 Shop 안내 독일어 크기 */
+}
+/* Shop 안내 문구: 데스크톱과 휴대폰에서 다른 문구를 보여 줍니다. */
+.shop-hint .hint-phone { display: none; }
+@media (max-width: 600px) {
+ .shop-hint .hint-wide { display: none; }
+ .shop-hint .hint-phone { display: inline; }
 }
 
 /* Shop 구매 패널: 화면 오른쪽에서 왼쪽으로 열리는 글래스 패널 */
@@ -227,6 +237,8 @@ body.shop-panel-wide .shop-panel { width: var(--shop-panel-wide); }
  font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; transition: transform .15s, background-color .4s, color .4s;
 }
 .shop-panel-specs { margin-bottom: 28px; }
+.shop-panel-actions { display: contents; }   /* 데스크톱: 카트 버튼이 예전처럼 정보 칸 아래에 붙도록 묶음 상자를 없는 것처럼 둡니다. */
+.shop-panel-buy-now { display: none; }
 .shop-panel-buy:active { transform: scale(.97); }
 .shop-panel-buy:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 /* 창이 좁아 안내 문구가 패널과 겹치면, 패널이 열린 동안 안내 문구를 감춥니다. */
@@ -236,12 +248,11 @@ body.shop-panel-wide .shop-hint { opacity: 0; }
 /* Shop 시작 상태의 안내: 좁아진 주사위 공간 가운데, 첫 조작을 하면 사라집니다(가로 위치는 dice3d.js가 맞춥니다). */
 .shop-hint.shop-start-hint { opacity: 0; }
 body.shop-at-start .shop-hint.shop-start-hint { opacity: 1; }
-/* 시작 화면과 Shop 화면 맨 위의 띠: 전환 버튼과 가운데 로고(누르면 시작 화면으로) (데스크톱 전용) */
+/* 시작 화면과 Shop 화면 맨 위의 띠: 전환 버튼과 가운데 로고(누르면 시작 화면으로) */
 .top-band { display: none; }
 .mode-studio { display: none; }
 .shop-panel-de { display: none; }
-/* 데스크톱 전용 */
-@media (min-width: 601px) {
+/* 띠·로고·전환 버튼: 데스크톱과 휴대폰 공통 (크기는 아래 휴대폰 규칙에서 줄입니다) */
  :root { --top-band: 72px; }   /* 흰 띠의 높이 */
  body:not(.is-writing) .top-band {
   display: flex; position: fixed; z-index: 5; top: 0; left: 0; right: 0; box-sizing: border-box; height: var(--top-band);
@@ -265,6 +276,18 @@ body.shop-at-start .shop-hint.shop-start-hint { opacity: 1; }
  /* 윗면 1의 흰 띠에서는 Memo 버튼이 보이도록 연회색으로 바꿉니다. */
  body.is-shop.top-band-light .mode-memo { background: #f2f2f2; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
  body.is-shop.top-band-light .mode-memo:hover { background: #e8e8e8; }
+/* 휴대폰: 띠를 낮추고 로고를 줄이며, 면 버튼과 안내 문구를 띠 아래에 놓습니다. */
+@media (max-width: 600px) {
+ :root { --top-band: 56px; }
+ body:not(.is-shop) .logo-graphic { height: 36px; top: 3px; }
+ body.is-shop .logo-brand { height: 18px; }
+ .glass-button { top: calc((var(--top-band) - 30px) / 2); height: 30px; padding: 0 18px; line-height: 30px; }   /* 휴대폰 전환 버튼 높이 */
+ .mode-studio { left: 16px; }
+ .face-buttons.left { top: calc(var(--top-band) + 16px); }
+ .instruction { top: calc(var(--top-band) + 16px + var(--button-size) + 32px); }
+}
+/* 데스크톱 전용 */
+@media (min-width: 601px) {
  .shop-panel-side { scrollbar-width: none; }   /* 창 높이가 낮을 때 정보 칸에 스크롤 막대가 보이지 않게 합니다. */
  .shop-panel-side::-webkit-scrollbar { display: none; }
  .shop-panel { background: #ffffff1f; }   /* 흰색 12% 유리: 뒤쪽 방의 밝기가 그대로 비칩니다. */
@@ -290,18 +313,40 @@ body.shop-at-start .shop-hint.shop-start-hint { opacity: 1; }
  body.shop-panel-light .shop-panel-buy { border-color: #121212; }
  body.shop-panel-light .shop-panel-buy:focus-visible, body.shop-panel-light .shop-panel-gallery:focus-visible { outline-color: #000; }
 }
-/* 휴대폰: 왼쪽 칸의 주사위와 겹치지 않도록 패널 폭을 절반으로 줄입니다. */
+/* 휴대폰: 주사위를 위로 굴리면 구매 패널이 아래에서 올라옵니다(흰색 12% 유리). 제품 정보가 먼저, 그 아래에 사진이 이어지고 패널 안에서 위아래로 스크롤합니다. */
 @media (max-width: 600px) {
- .shop-panel { --shop-panel-narrow: 50vw; --shop-panel-wide: 70vw; flex-direction: column; justify-content: flex-start; }
- .shop-panel-side { flex: 1 1 0; min-height: 0; width: 100%; height: auto; padding: 88px 14px calc(32px + env(safe-area-inset-bottom)); transition: padding .6s cubic-bezier(.22, .8, .2, 1); }
- body.shop-panel-wide .shop-panel-side { padding-top: 22px; }
- /* 휴대폰: 사진은 정보 위에 놓고 옆으로 넘깁니다. */
- .shop-panel-gallery { --photo: calc(var(--shop-panel-wide) - 28px); width: var(--shop-panel-wide); height: 0; flex-direction: row; align-items: flex-start; gap: 10px; padding: 0 14px; overflow: auto hidden; touch-action: pan-x; transition: height .6s cubic-bezier(.22, .8, .2, 1), padding .6s cubic-bezier(.22, .8, .2, 1); }
- body.shop-panel-wide .shop-panel-gallery { padding-top: 24px; height: calc(var(--photo) * 1.25 + 24px); }
- .shop-panel-gallery img { width: var(--photo); }
- .shop-panel-name [lang="de"] { font-size: 30px; }
- .shop-panel-name .ko { font-size: 19px; }
- .shop-panel-price { margin-top: 24px; font-size: 20px; }
- .shop-panel-specs { margin-top: 24px; font-size: 12.5px; line-height: 18px; }
- .shop-panel-buy { height: 46px; font-size: 14px; }
+ .shop-panel {
+  --sheet-height: 58svh;   /* 올라온 패널의 높이 */
+  top: auto; left: 0; right: 0; bottom: 0; width: 100%; height: var(--sheet-height);
+  flex-direction: column; justify-content: flex-start; overflow: hidden auto; overscroll-behavior: contain; scrollbar-width: none;
+  background: #ffffff1f; border-left: 0; border-top: 1px solid #ffffffa6; border-radius: 20px 20px 0 0;
+  box-shadow: inset 0 56px 56px -44px #ffffff73, inset 56px 0 56px -44px #ffffff73, inset -56px 0 56px -44px #ffffff73;
+  font-family: 'Wuerfel Latin', 'Gothic A1', "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  transform: translateY(100%);
+ }
+ .shop-panel::-webkit-scrollbar { display: none; }
+ body.shop-panel-wide .shop-panel { width: 100%; }
+ /* 순서: 제품 이름 → 가격 → 구매하기·카트에 추가 → 제품 설명 → 상세 이미지 */
+ .shop-panel-side { order: 1; flex: none; width: 100%; height: auto; overflow: visible; align-items: stretch; padding: 32px 24px 0; }
+ .shop-panel-info { display: contents; }
+ .shop-panel-name { order: 1; }
+ .shop-panel-price { order: 2; margin-top: 16px; font-size: 10pt; }
+ .shop-panel-actions { order: 3; display: flex; justify-content: center; gap: 8px; margin-top: 20px; }
+ .shop-panel-specs { order: 4; margin-top: 24px; margin-bottom: 0; font-size: 7.75pt; line-height: 17px; }
+ .shop-panel-specs-de { order: 5; margin-top: 12px; }
+ .shop-panel-name [lang="de"] { font-size: 16pt; }
+ .shop-panel-name .ko { font-size: 9.25pt; }
+ .shop-panel-de { display: block; }
+ .shop-panel-price .shop-panel-de { margin-top: 4px; font-size: 10pt; line-height: 1.2; }
+ .shop-panel-name [lang="de"], .shop-panel-name .ko, .shop-panel-price, .shop-panel-specs, .shop-panel-buy { font-weight: 300; }
+ /* 구매하기·카트에 추가: 같은 모양으로 가로로 나란히 */
+ .shop-panel-buy, .shop-panel-buy-now { display: block; flex: none; width: 128px; height: 34px; margin-top: 0; font-size: 8.5pt; border: 1px solid #fafafa; background: transparent; color: inherit; text-decoration: underline; text-underline-offset: 4px; transition: transform .15s, color .4s, border-color .4s; }
+ .shop-panel-gallery { order: 2; flex: none; width: 100%; height: auto; overflow: visible; gap: 12px; padding: 28px 24px calc(32px + env(safe-area-inset-bottom)); }
+ .shop-panel-gallery img { width: 100%; aspect-ratio: 4 / 5; object-fit: contain; }
+ /* 뒤로 비치는 방이 밝으면 글자와 테두리를 검정으로 바꿉니다. */
+ body.shop-panel-light .shop-panel {
+  color: #000; border-top-color: #00000026;
+  box-shadow: inset 0 56px 56px -44px #00000014, inset 56px 0 56px -44px #00000014, inset -56px 0 56px -44px #00000014;
+ }
+ body.shop-panel-light .shop-panel-buy { border-color: #121212; }
 }

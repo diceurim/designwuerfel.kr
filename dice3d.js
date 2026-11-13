@@ -429,7 +429,7 @@ const toScreen = v => { const p = v.clone().project(camera); return { x: (p.x + 
 function cellScreen(cell) {
   const z = cell[1] * DICE_SIZE, scale = depthScale(z);
   const center = toScreen(new THREE.Vector3(cell[0] * DICE_SIZE, HALF * scale, z));
-  return { x: center.x + roomMoveLeft(), y: center.y, size: DICE_SIZE * diceViewScale * scale };
+  return { x: center.x + roomMoveLeft(), y: center.y + roomMoveUp(), size: DICE_SIZE * diceViewScale * scale };
 }
 // 칸에 놓인 주사위가 화면에서 차지하는 사각형(정육면체 꼭짓점 8개를 투영)
 function cellRect(cell) {
@@ -439,14 +439,20 @@ function cellRect(cell) {
     const p = toScreen(new THREE.Vector3(cell[0] * DICE_SIZE + dx * half, dy * half, z + dz * half));
     const x = p.x + roomMoveLeft();
     rect.left = Math.min(rect.left, x); rect.right = Math.max(rect.right, x);
-    rect.top = Math.min(rect.top, p.y); rect.bottom = Math.max(rect.bottom, p.y);
+    const y = p.y + roomMoveUp();
+    rect.top = Math.min(rect.top, y); rect.bottom = Math.max(rect.bottom, y);
   }
   return rect;
 }
 // 구매 패널이 넓게 열리면 주사위가 쓸 수 있는 공간의 오른쪽 끝이 패널 왼쪽 끝으로 바뀝니다.
-const roomRight = () => shopWideCell ? innerWidth - shopPanelRuler.offsetWidth : innerWidth;
+// 휴대폰에서는 패널이 아래에서 올라오므로, 대신 주사위 공간의 아래쪽 끝이 패널 위쪽 끝으로 바뀝니다.
+const isPhone = () => innerWidth <= 600;
+const phoneSheetOpen = () => !!shopWideCell && isPhone();
+const roomRight = () => shopWideCell && !isPhone() ? innerWidth - shopPanelRuler.offsetWidth : innerWidth;
+const roomBottom = () => phoneSheetOpen() ? innerHeight - shopPanel.offsetHeight : innerHeight;
 // 바닥이 아직 옮겨 가는 중이어도 판정은 도착한 뒤의 화면 기준으로 합니다.
 const roomMoveLeft = () => shopRoomGoal - shopRoomShift;
+const roomMoveUp = () => shopRoomGoalY - shopRoomShiftY;
 // 주사위가 멈춰 쉬는 영역: 화면에서 위쪽 Memo 버튼과 아래쪽 안내 문구 자리를 뺀 곳(매 프레임 실제 위치로 갱신).
 // 휴대폰처럼 화면이 작을 때 주사위가 버튼·안내 밑에 멈춰 잡기 어려워지지 않게 합니다. 화면 밖 판정과 점대칭 계산은 화면 전체 기준 그대로입니다.
 let playTop = 0, playBottom = 0;
@@ -460,13 +466,14 @@ function updatePlayArea() {
 // 쉬는 영역 테두리까지의 여유(px). 음수면 그만큼 밖으로 삐져나감
 function sideGaps(cell) {
   const r = cellRect(cell);
-  return { left: r.left, right: roomRight() - r.right, top: r.top - playTop, bottom: innerHeight - playBottom - r.bottom };
+  const floor = phoneSheetOpen() ? roomBottom() : innerHeight - playBottom;   // 패널이 올라와 있으면 안내 문구는 감춰져 있습니다.
+  return { left: r.left, right: roomRight() - r.right, top: r.top - playTop, bottom: floor - r.bottom };
 }
 const NEAR_EDGE = 0.4;      // 테두리까지 여유가 주사위 한 변의 0.4배보다 작으면 '가장자리'(잡기 어려운 자리)
 const INSIDE_PAD = 8;       // 복귀가 끝났을 때 테두리에서 최소한 떨어져 있을 거리(px)
 function cellOffscreen(cell) {
   const r = cellRect(cell);
-  return r.right < 0 || r.left > roomRight() || r.bottom < topBandHeight || r.top > innerHeight;
+  return r.right < 0 || r.left > roomRight() || r.bottom < topBandHeight || r.top > roomBottom();
 }
 const cellFullyInside = cell => Object.values(sideGaps(cell)).every(gap => gap >= INSIDE_PAD);
 const minGap = cell => Math.min(...Object.values(sideGaps(cell)));
@@ -483,7 +490,7 @@ function headingToNearEdge(cell, dir) {
 
 // 화면 좌표(px)에 주사위 중심이 보이도록 하는 칸 좌표(바닥 위, 원근 크기까지 맞춰 몇 번 되풀이해 수렴)
 function cellAtScreen(x, y) {
-  const ndc = [(x - roomMoveLeft()) / innerWidth * 2 - 1, 1 - y / innerHeight * 2];
+  const ndc = [(x - roomMoveLeft()) / innerWidth * 2 - 1, 1 - (y - roomMoveUp()) / innerHeight * 2];
   let scale = 1, hit = null;
   for (let i = 0; i < 4; i++) {
     const near = new THREE.Vector3(ndc[0], ndc[1], -1).unproject(camera);
@@ -494,7 +501,7 @@ function cellAtScreen(x, y) {
   return [hit.x / DICE_SIZE, hit.z / DICE_SIZE];
 }
 // 주사위 공간의 중심에 대한 점대칭 위치: (x, y) → (W − x, H − y). W는 구매 패널이 넓게 열리면 남은 공간의 폭입니다.
-const mirrorCell = cell => { const p = cellScreen(cell); return cellAtScreen(roomRight() - p.x, innerHeight + topBandHeight - p.y); };
+const mirrorCell = cell => { const p = cellScreen(cell); return cellAtScreen(roomRight() - p.x, roomBottom() + topBandHeight - p.y); };
 
 // 복귀할 때 들어오며 몇 칸 굴러야 하는지 정합니다.
 // ① 모든 테두리에서 가장자리 범위(잡기 어려운 자리) 밖인 첫 칸 → ② 없으면 주사위 전체가 화면 안인 첫 칸
@@ -539,7 +546,7 @@ function keepInsideAfterResize() {
   lastShopSize = size;
   if (tipState || throwState || drag || cellFullyInside(shopCell)) return;
   // 테두리 가장자리 범위까지 벗어난 자리를 먼저 찾고, 없으면 전체가 보이는 첫 자리로 옮깁니다.
-  const center = cellAtScreen(roomRight() / 2, (innerHeight + topBandHeight) / 2);
+  const center = cellAtScreen(roomRight() / 2, (roomBottom() + topBandHeight) / 2);
   let firstInside = null;
   for (let i = 1; i <= 40; i++) {
     const t = i / 40, at = [shopCell[0] + (center[0] - shopCell[0]) * t, shopCell[1] + (center[1] - shopCell[1]) * t];
@@ -580,6 +587,12 @@ function setShopPanel(stage) {
 function applyManualTip(tip) {
   const [dx, dz] = tip.dir, column = shopCell[0] + dx;
   document.body.classList.remove('shop-at-start');
+  // 휴대폰: 위로 굴리면 패널이 아래에서 올라오고, 아래로 굴리면 내려갑니다(좌우로 굴려도 그대로).
+  if (isPhone()) {
+    if (shopWideCell && dz > 0) shopWideCell = null;
+    else if (!shopWideCell && dz < 0) { shopWideCell = [shopCell[0], shopCell[1] + dz]; tip.opensWide = true; }
+    return;
+  }
   if (shopWideCell && dx > 0) shopWideCell = null;
   else if (!shopWideCell && dx < 0 && column < -1.25) { shopWideCell = [column, shopCell[1]]; tip.opensWide = true; }
   // 넓게 열린 동안(데스크톱) 위아래로 굴리면 사진도 같은 타이밍으로 넘어갑니다.
@@ -635,11 +648,13 @@ function updateShopPanel() {
   const column = shopCell[0] + (tipState ? tipState.dir[0] : 0);
   if (throwingHome && !throwState) { throwingHome = false; document.body.classList.add('shop-at-start'); }
   if (shopWideCell) shopStartHint.style.left = `${roomRight() / 2}px`;
-  setShopPanel(shopWideCell ? 2 : column < -0.25 ? 1 : 0);
+  setShopPanel(shopWideCell ? 2 : !isPhone() && column < -0.25 ? 1 : 0);
   // 패널 뒤로 비치는 방이 밝으면 글자를 검정으로 바꿉니다(문턱값을 둘로 나눠 경계에서 깜빡이지 않게 합니다).
   if (shopPanelStage > 0) document.body.classList.toggle('shop-panel-light', shopPanelBack > (document.body.classList.contains('shop-panel-light') ? 0.5 : 0.58));
   // 넓게 열리면 그 칸이 남은 공간의 가운데에 오도록 바닥과 주사위를 함께 옮깁니다.
   shopRoomGoal = shopWideCell ? roomRight() / 2 - (cellScreen(shopWideCell).x - shopRoomGoal) : 0;
+  // 휴대폰에서 패널이 올라오면 그 칸이 패널 위쪽 공간의 가운데에 오도록 바닥과 주사위를 위로 옮깁니다.
+  shopRoomGoalY = phoneSheetOpen() ? (topBandHeight + roomBottom()) / 2 - (cellScreen(shopWideCell).y - shopRoomGoalY) : 0;
 }
 
 function updateShop() {
@@ -648,7 +663,7 @@ function updateShop() {
   if (!shopMode) {
     // 시작 화면으로 돌아가면 가운데 칸, 원래 크기로 되돌립니다.
     if (wasShop) {
-      shopWideCell = null; shopRoomGoal = 0; throwingHome = false;
+      shopWideCell = null; shopRoomGoal = 0; shopRoomGoalY = 0; throwingHome = false;
       document.body.classList.remove('shop-at-start');
       setShopPanel(0);
       wasShop = false; shopCell = [0, 0]; tipState = null; drag = null; heldLift = 0; shopYaw = 0;

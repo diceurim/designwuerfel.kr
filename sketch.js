@@ -17,6 +17,7 @@ let diceScreenShift = [0, 0];
 // Shop 구매 패널이 넓게 열리면 주사위 공간이 왼쪽으로 좁아집니다. 바닥과 주사위를 함께 옮기는 화면 x 이동량(px)과 그 목표값입니다.
 let shopRoomShift = 0;
 let shopRoomGoal = 0;
+let shopRoomShiftY = 0, shopRoomGoalY = 0;   // 휴대폰에서 구매 패널이 아래에서 올라올 때 바닥과 주사위를 위로 옮기는 거리(px, 위쪽이 음수)
 // 시작 화면과 Shop 화면 위쪽 띠의 높이(px, 휴대폰은 띠가 없어 0). 주사위 공간은 이 띠 아래만 씁니다.
 let topBandHeight = 0;
 let topBandProgress = 1;   // 기록 화면에서는 띠가 없어지므로 0으로 옮겨 갑니다.
@@ -286,13 +287,15 @@ function draw() {
   const targetY = lollingWorld ? lollingWorld.dice.position.y : docked ? height - halfSize - 16 : height - Math.max(height * .13, halfSize + 16) - 30; // 위로 30위
   shopRoomShift = lerp(shopRoomShift, shopRoomGoal, 1 - Math.exp(-Math.min(deltaTime, 100) / 150));
   if (Math.abs(shopRoomShift - shopRoomGoal) < .5) shopRoomShift = shopRoomGoal;
+  shopRoomShiftY = lerp(shopRoomShiftY, shopRoomGoalY, 1 - Math.exp(-Math.min(deltaTime, 100) / 150));
+  if (Math.abs(shopRoomShiftY - shopRoomGoalY) < .5) shopRoomShiftY = shopRoomGoalY;
   const offsetX = ((targetX - width / 2) * writingViewProgress + shopRoomShift) / viewScale;
   if (!writingOpen) topBandHeight = document.querySelector('.top-band').offsetHeight;
   topBandProgress = lerp(topBandProgress, writingOpen ? 0 : 1, 1 - Math.exp(-Math.min(deltaTime, 100) / 170));
   if (Math.abs(topBandProgress - (writingOpen ? 0 : 1)) < .001) topBandProgress = writingOpen ? 0 : 1;
   const roomDown = topBandHeight / 2 * topBandProgress;   // 띠 아래 공간의 가운데로 바닥과 주사위를 내립니다.
-  const screenOffset = (5 - (targetY - height / 2 + 5) * writingViewProgress - roomDown) / viewScale;
-  diceScreenShift = [(targetX - width / 2) * writingViewProgress + shopRoomShift, (targetY - height / 2 - 5) * writingViewProgress + roomDown];
+  const screenOffset = (5 - (targetY - height / 2 + 5) * writingViewProgress - roomDown - shopRoomShiftY) / viewScale;
+  diceScreenShift = [(targetX - width / 2) * writingViewProgress + shopRoomShift, (targetY - height / 2 - 5) * writingViewProgress + roomDown + shopRoomShiftY];
   sceneDrawn = true;
   ortho(-width / (2 * viewScale) - offsetX, width / (2 * viewScale) - offsetX,
     -height / (2 * viewScale) - screenOffset,

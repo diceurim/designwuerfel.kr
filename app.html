@@ -6,7 +6,7 @@
   <!-- 아이패드 등 AppleMyungjo가 없는 기기에서도 지시문이 명조체로 보이도록 대체 글꼴을 불러옵니다. 맥에서는 AppleMyungjo가 먼저 쓰입니다. -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400&family=Gothic+A1:wght@300;400&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400&family=Gothic+A1:wght@300;400&family=IM+Fell+English&display=swap">
   <title>Dice Memo</title>
   <link rel="icon" type="image/png" href="assets/faviconimage_test.png">
   <style>
@@ -108,7 +108,7 @@
   <script src="seed-notes.js?v=3"></script>
   <script src="writing.js?v=dice-9"></script>
   <script src="p5.min.js"></script>
-  <script src="sketch.js?v=panel-glass-1"></script>
+  <script src="sketch.js?v=mobile-sheet-1"></script>
   <script src="notes.js?v=notes-drag-4"></script>
   <link rel="stylesheet" href="remember.css?v=5-haas">
   <script src="remember.js?v=2"></script>
@@ -120,10 +120,10 @@
 <link rel="stylesheet" href="lolling.css?v=5">
 <link rel="stylesheet" href="experiment.css?v=14">
 <script src="experiment.js?v=5"></script>
-<link rel="stylesheet" href="ui-style.css?v=panel-glass-1">
+<link rel="stylesheet" href="ui-style.css?v=mobile-sheet-4">
 <!-- 3D 주사위: Blender에서 만든 GLB 모델과 굴림 애니메이션을 three.js로 그립니다. -->
 <script type="importmap">{ "imports": { "three": "./lib/three/three.module.min.js", "three/addons/": "./lib/three/addons/" } }</script>
-<script type="module" src="dice3d.js?v=72-panel-glass"></script>
+<script type="module" src="dice3d.js?v=73-mobile-sheet"></script>
 </head>
 <body>
   <!-- 화면 이름표: 열린 화면에 따라 왼쪽 위 구석에 표시됩니다(시작 화면에서는 숨김). -->
@@ -140,8 +140,9 @@
   <button id="memoButton" class="glass-button mode-memo" type="button">Memo</button>
   <button id="studioButton" class="glass-button mode-studio" type="button">studio</button>
   <section class="shop-hint" aria-label="Shop 사용 안내">
-    <p class="ko" lang="ko">주사위를 잡고 밀어서 굴려보세요.<br>위로 힘껏 들어 올렸다 놓으면 던져져요.</p>
-    <p class="de" lang="de">Greif den Würfel und schieb ihn an, um ihn zu rollen.<br>Zieh ihn kräftig nach oben und lass ihn los, um ihn zu werfen.</p>
+    <!-- hint-wide는 데스크톱 문구, hint-phone은 휴대폰 문구입니다(휴대폰은 위로 굴리면 구매 패널이 올라옵니다). -->
+    <p class="ko" lang="ko"><span class="hint-wide">주사위를 잡고 밀어서 굴려보세요.<br>위로 힘껏 들어 올렸다 놓으면 던져져요.</span><span class="hint-phone">주사위를 잡고 위로 굴려보세요.</span></p>
+    <p class="de" lang="de"><span class="hint-wide">Greif den Würfel und schieb ihn an, um ihn zu rollen.<br>Zieh ihn kräftig nach oben und lass ihn los, um ihn zu werfen.</span><span class="hint-phone">Greif den Würfel und roll ihn nach oben.</span></p>
   </section>
   <section class="shop-hint shop-start-hint" aria-label="Shop 시작 안내">
     <p class="ko" lang="ko">주사위를 오른쪽으로 밀어보세요.</p>
@@ -181,7 +182,11 @@
       <li>Hergestellt in Südkorea</li>
     </ul>
     </div>
-    <button class="shop-panel-buy" type="button">카트에 추가</button>
+    <!-- 구매하기 버튼은 휴대폰에서만 보입니다(데스크톱은 카트 버튼만, 지금처럼 아래에 붙어 있습니다). -->
+    <div class="shop-panel-actions">
+      <button class="shop-panel-buy shop-panel-buy-now" type="button">구매하기</button>
+      <button class="shop-panel-buy" type="button">카트에 추가</button>
+    </div>
     </div>
   </aside>
   <nav class="face-buttons left" aria-label="W ü r">
