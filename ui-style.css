@@ -284,7 +284,7 @@ body.shop-at-start .shop-hint.shop-start-hint { opacity: 1; }
  .glass-button { top: calc((var(--top-band) - 30px) / 2); height: 30px; padding: 0 18px; line-height: 30px; }   /* 휴대폰 전환 버튼 높이 */
  .mode-studio { left: 16px; }
  .face-buttons.left { top: calc(var(--top-band) + 16px); }
- .instruction { top: calc(var(--top-band) + 16px + var(--button-size) + 32px); }
+ .instruction { top: calc(var(--top-band) + 16px + var(--button-size) + 37px); }
 }
 /* 데스크톱 전용 */
 @media (min-width: 601px) {
@@ -331,7 +331,7 @@ body.shop-at-start .shop-hint.shop-start-hint { opacity: 1; }
  .shop-panel-info { display: contents; }
  .shop-panel-name { order: 1; }
  .shop-panel-price { order: 2; margin-top: 16px; font-size: 10pt; }
- .shop-panel-actions { order: 3; display: flex; justify-content: center; gap: 8px; margin-top: 20px; }
+ .shop-panel-actions { order: 3; display: flex; justify-content: center; gap: 32px; margin-top: 20px; }   /* 두 버튼 사이 간격(가운데 정렬이라 양쪽으로 같이 벌어집니다) */
  .shop-panel-specs { order: 4; margin-top: 24px; margin-bottom: 0; font-size: 7.75pt; line-height: 17px; }
  .shop-panel-specs-de { order: 5; margin-top: 12px; }
  .shop-panel-name [lang="de"] { font-size: 16pt; }
@@ -340,7 +340,7 @@ body.shop-at-start .shop-hint.shop-start-hint { opacity: 1; }
  .shop-panel-price .shop-panel-de { margin-top: 4px; font-size: 10pt; line-height: 1.2; }
  .shop-panel-name [lang="de"], .shop-panel-name .ko, .shop-panel-price, .shop-panel-specs, .shop-panel-buy { font-weight: 300; }
  /* 구매하기·카트에 추가: 같은 모양으로 가로로 나란히 */
- .shop-panel-buy, .shop-panel-buy-now { display: block; flex: none; width: 128px; height: 34px; margin-top: 0; font-size: 8.5pt; border: 1px solid #fafafa; background: transparent; color: inherit; text-decoration: underline; text-underline-offset: 4px; transition: transform .15s, color .4s, border-color .4s; }
+ .shop-panel-buy, .shop-panel-buy-now { display: block; flex: none; width: 128px; height: 34px; margin-top: 0; font-size: 8.5pt; border: 0; background: transparent; color: inherit; text-decoration: underline; text-underline-offset: 4px; transition: transform .15s, color .4s, border-color .4s; }
  .shop-panel-gallery { order: 2; flex: none; width: 100%; height: auto; overflow: visible; gap: 12px; padding: 28px 24px calc(32px + env(safe-area-inset-bottom)); }
  .shop-panel-gallery img { width: 100%; aspect-ratio: 4 / 5; object-fit: contain; }
  /* 뒤로 비치는 방이 밝으면 글자와 테두리를 검정으로 바꿉니다. */

@@ -587,9 +587,11 @@ function setShopPanel(stage) {
 function applyManualTip(tip) {
   const [dx, dz] = tip.dir, column = shopCell[0] + dx;
   document.body.classList.remove('shop-at-start');
-  // 휴대폰: 위로 굴리면 패널이 아래에서 올라오고, 아래로 굴리면 내려갑니다(좌우로 굴려도 그대로).
+  // 휴대폰: 위로 굴리면 패널이 아래에서 올라옵니다. 올라온 동안은 패널 위쪽 공간 안에서 자유롭게 굴리고,
+  // 그 공간의 아래쪽 끝에서 한 번 더 아래로 굴릴 때만 패널이 내려갑니다(좌우로 굴려도 그대로).
   if (isPhone()) {
-    if (shopWideCell && dz > 0) shopWideCell = null;
+    const next = [shopCell[0] + dx, shopCell[1] + dz];
+    if (shopWideCell && dz > 0 && sideGaps(next).bottom < NEAR_EDGE * cellScreen(next).size) { shopWideCell = null; tip.opensWide = true; }
     else if (!shopWideCell && dz < 0) { shopWideCell = [shopCell[0], shopCell[1] + dz]; tip.opensWide = true; }
     return;
   }

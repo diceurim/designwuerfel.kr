@@ -293,7 +293,8 @@ function draw() {
   if (!writingOpen) topBandHeight = document.querySelector('.top-band').offsetHeight;
   topBandProgress = lerp(topBandProgress, writingOpen ? 0 : 1, 1 - Math.exp(-Math.min(deltaTime, 100) / 170));
   if (Math.abs(topBandProgress - (writingOpen ? 0 : 1)) < .001) topBandProgress = writingOpen ? 0 : 1;
-  const roomDown = topBandHeight / 2 * topBandProgress;   // 띠 아래 공간의 가운데로 바닥과 주사위를 내립니다.
+  // 띠 아래 공간의 가운데로 바닥과 주사위를 내립니다. 휴대폰 시작(Memo) 화면에서는 5px 더 내립니다.
+  const roomDown = topBandHeight / 2 * topBandProgress + (width <= 600 ? 5 * (1 - shopProgress) * (1 - writingViewProgress) : 0);
   const screenOffset = (5 - (targetY - height / 2 + 5) * writingViewProgress - roomDown - shopRoomShiftY) / viewScale;
   diceScreenShift = [(targetX - width / 2) * writingViewProgress + shopRoomShift, (targetY - height / 2 - 5) * writingViewProgress + roomDown + shopRoomShiftY];
   sceneDrawn = true;
