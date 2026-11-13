@@ -30,7 +30,7 @@ let diceViewScale = viewScaleFor(innerWidth, innerHeight) || 1;
 const PHONE_DOCK_SCALE = .55;
 // Shop 화면: 흰 배경에 툰 셰이딩 없는 실물 주사위만 놓입니다. shopProgress는 배경이 바뀌는 정도(0 → 1)입니다.
 let shopMode = false;
-// Shop 제품 목록(데스크톱): Shop에 들어오면 먼저 보이고, 람페 칸을 누르면 지금의 제품 상세 화면으로 넘어갑니다.
+// Shop 제품 목록: Shop에 들어오면 먼저 보이고, 람페 칸을 누르면 지금의 제품 상세 화면으로 넘어갑니다.
 let shopCatalog = false, catalogProgress = 0, catalogScale = 1;
 const CATALOG_DICE = 0.32;   // 목록 칸의 사진 영역 폭에 대한 주사위 한 변의 비율
 let shopProgress = 0;
@@ -71,7 +71,7 @@ const FLOOR_FRAG = `
   precision highp float;
   varying vec2 vFloor;
   uniform vec2 uResolution, uPoolCenter;
-  uniform float uLevel, uShop, uFloorSize, uSpillRadius, uPoolRadius, uOff;
+  uniform float uLevel, uShop, uFloorSize, uSpillRadius, uPoolRadius, uOff, uCatalog;
   uniform vec2 uDice;
   uniform vec3 uMemo, uDark, uLight, uWarm;
   void main() {
@@ -81,7 +81,9 @@ const FLOOR_FRAG = `
     // 빛의 세기도 단계에 따라 오릅니다: 윗면 1은 가운데가 은은하게(POOL_PEAK_MIN), 6은 가장 밝게.
     float peak = mix(${POOL_PEAK_MIN.toFixed(3)}, 1.0, uLevel);
     // 윗면 1(uOff = 1)은 조명이 꺼진 상태: 빛 웅덩이·따뜻한 빛 없이 흰 방입니다.
-    vec3 room = mix(uDark, uLight, pool * pool * (3.0 - 2.0 * pool) * peak * (1.0 - uOff));
+    // 제품 목록(uCatalog = 1)에서는 흰 조명 대신 주사위에서 번지는 따뜻하고 은은한 빛으로 둡니다.
+    vec3 poolLight = mix(uLight, uWarm * 0.82, uCatalog);
+    vec3 room = mix(uDark, poolLight, pool * pool * (3.0 - 2.0 * pool) * peak * mix(1.0, 0.6, uCatalog) * (1.0 - uOff));
     // 주사위 바로 둘레의 따뜻한 빛(바닥 위 거리로 계산해 원근감을 따름)
     float near = length(vFloor * uFloorSize - uDice) / uSpillRadius;
     room = mix(room, uWarm, exp(-near * near) * (0.15 + 0.45 * uLevel) * (1.0 - uOff));
@@ -301,8 +303,8 @@ function draw() {
   if (!writingOpen) topBandHeight = document.querySelector('.top-band').offsetHeight;
   topBandProgress = lerp(topBandProgress, writingOpen ? 0 : 1, 1 - Math.exp(-Math.min(deltaTime, 100) / 170));
   if (Math.abs(topBandProgress - (writingOpen ? 0 : 1)) < .001) topBandProgress = writingOpen ? 0 : 1;
-  // 띠 아래 공간의 가운데로 바닥과 주사위를 내립니다. 휴대폰 시작(Memo) 화면에서는 5px 더 내립니다.
-  const roomDown = topBandHeight / 2 * topBandProgress + (width <= 600 ? 5 * (1 - shopProgress) * (1 - writingViewProgress) : 0);
+  // 띠 아래 공간의 가운데로 바닥과 주사위를 내립니다. 휴대폰 시작(Memo) 화면에서는 15px 더 내립니다.
+  const roomDown = topBandHeight / 2 * topBandProgress + (width <= 600 ? 15 * (1 - shopProgress) * (1 - writingViewProgress) : 0);
   const screenOffset = (5 - (targetY - height / 2 + 5) * writingViewProgress - roomDown - shopRoomShiftY) / viewScale;
   diceScreenShift = [(targetX - width / 2) * writingViewProgress + shopRoomShift, (targetY - height / 2 - 5) * writingViewProgress + roomDown + shopRoomShiftY];
   sceneDrawn = true;
@@ -322,10 +324,12 @@ function draw() {
     floorShader.setUniform('uPoolRadius', poolRadius * pixelDensity());
     floorShader.setUniform('uLevel', diceGlowLevel);
     floorShader.setUniform('uOff', off);
+    floorShader.setUniform('uCatalog', 0);   // 제품 목록에서도 빛 웅덩이는 Shop 화면과 같은 밝기입니다.
     floorShader.setUniform('uShop', shopProgress);
     floorShader.setUniform('uFloorSize', FLOOR_SIZE);
     floorShader.setUniform('uDice', [positionX, positionZ]);
-    floorShader.setUniform('uSpillRadius', DICE_SIZE * 1.6 * diceDepthScale);
+    // 제품 목록은 시선이 달라 바닥 위 빛 번짐 자리가 맞지 않으므로, 목록에서는 번짐을 끕니다.
+    floorShader.setUniform('uSpillRadius', DICE_SIZE * 1.6 * diceDepthScale * Math.max(0.001, 1 - catalogProgress));
     floorShader.setUniform('uMemo', colorVec(color('#121212')));
     floorShader.setUniform('uDark', colorVec(roomDark));
     floorShader.setUniform('uLight', colorVec(roomLight));
@@ -354,7 +358,7 @@ function draw() {
     push();
     translate(positionX, FLOOR_Y + 0.25, positionZ);
     rotateX(HALF_PI);
-    fill(0, 0, 0, (1 - lift / 350) * 38 * shopProgress);
+    fill(0, 0, 0, (1 - lift / 350) * 38 * shopProgress * (1 - catalogProgress));   // 제품 목록에서는 dice3d.js의 접지 그림자가 대신합니다.
     const size = DICE_SIZE * diceDepthScale * (1.5 + lift / 220);
     ellipse(0, 0, size, size, 72);
     pop();
@@ -539,7 +543,9 @@ function setShopMode(on) {
   if (writingOpen) return;
   shopMode = on;
   document.body.classList.toggle('is-shop', on);
-  setShopCatalog(on && innerWidth > 600);
+  setShopCatalog(on);
+  // Memo 화면에서 들어오면 주사위가 처음부터 람페 칸 자리·크기에 놓입니다(가운데에서 옮겨 가지 않음).
+  if (on) catalogProgress = 1;
   if (!on && !throwState) document.querySelector('.instruction').hidden = false;
 }
 

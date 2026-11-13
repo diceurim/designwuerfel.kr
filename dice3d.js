@@ -18,7 +18,20 @@ const sun = new THREE.DirectionalLight(0xffffff, 3);
 sun.position.set(-150, 700, 350);
 scene.add(sun, new THREE.AmbientLight(0xffffff, 0.2));
 // Shop 화면의 실물 주사위(원래 재질)가 금속·아크릴 반사를 갖도록 실내 조명 환경을 비춥니다. 툰 재질에는 영향이 없습니다.
-scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+const pmrem = new THREE.PMREMGenerator(renderer);
+const ROOM_ENV = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environment = ROOM_ENV;
+// 제품 목록의 실사 렌더용 환경: 흰 바닥과 밝은 왼쪽 벽·천장(소프트박스), 어두운 오른쪽 벽으로 된 촬영 스튜디오.
+// 금속 띠가 아래로는 흰 바닥을, 오른쪽 위로는 어두운 벽을 비춰 제품 사진 같은 명암이 생깁니다.
+const STUDIO_ENV = (() => {
+  const studio = new THREE.Scene();
+  const wall = (color, gain) => new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(gain), side: THREE.BackSide });
+  // 상자 면 순서: +x(오른쪽), -x(왼쪽), +y(천장), -y(바닥), +z(카메라 뒤), -z(뒤쪽 벽)
+  studio.add(new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), [
+    wall(0x33312f, 1), wall(0xffffff, 1.0), wall(0xf2efea, 0.9), wall(0xffffff, 0.82), wall(0xa9a6a1, 1), wall(0x6f6c68, 1),
+  ]));
+  return pmrem.fromScene(studio, 0.03).texture;
+})();
 const TOON_STEPS = (() => {
   const texture = new THREE.DataTexture(new Uint8Array([90, 255]), 2, 1, THREE.RedFormat);
   texture.minFilter = texture.magFilter = THREE.NearestFilter;
@@ -70,12 +83,15 @@ const OFF_STEEL_ROUGHNESS = 0.62, OFF_STEEL_SHINE = 1.0;   // 꺼졌을 때 새�
 // B-1: 밝은 중앙, 옅은 회색 가장자리, 약한 비침. 윗면 1에서만 적용.
 const OFF_FROST = { milk: 1, rim: 0.06, seeThrough: 0.065 };
 const FROST_MILK = { value: 0 }, FROST_RIM = { value: 0 }, FROST_SEE = { value: 0 };
+// 제품 목록의 실사 렌더: 파인 눈 속을 살구빛으로 살짝 가라앉힙니다(0이면 끔).
+const PIT_WARM = { value: 0 };
 ACRYLIC.onBeforeCompile = shader => {
   shader.uniforms.uGlowLevel = GLOW_LEVEL;
   shader.uniforms.uOff = OFF_LOOK;
   shader.uniforms.uFrostMilk = FROST_MILK;
   shader.uniforms.uFrostRim = FROST_RIM;
   shader.uniforms.uFrostSee = FROST_SEE;
+  shader.uniforms.uPitWarm = PIT_WARM;
   shader.vertexShader = shader.vertexShader
     .replace('#include <common>', '#include <common>\nvarying vec3 vObjectNormal;\nvarying vec3 vObjectPosition;')
     .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nvObjectNormal = objectNormal;\nvObjectPosition = position;');
@@ -85,7 +101,7 @@ ACRYLIC.onBeforeCompile = shader => {
       varying vec3 vObjectPosition;
       uniform float uGlowLevel;
       uniform float uOff;
-      uniform float uFrostMilk, uFrostRim, uFrostSee;
+      uniform float uFrostMilk, uFrostRim, uFrostSee, uPitWarm;
       float acrylicHash(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }`)
     .replace('#include <color_fragment>', `#include <color_fragment>
       vec3 axis = abs(normalize(vObjectNormal));
@@ -108,6 +124,9 @@ ACRYLIC.onBeforeCompile = shader => {
       vec3 frostColor = mix(vec3(0.96, 0.935, 0.89), vec3(0.85, 0.825, 0.78), frostEdge);
       frostColor *= (0.992 + 0.016 * grain) * (1.0 - 0.055 * pit);
       diffuseColor.rgb = mix(diffuseColor.rgb, frostColor, uFrostMilk * uOff);
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.72, 0.58), pit * uPitWarm * uOff);
+      // 제품 목록의 실사 렌더: 패널 채도를 살짝(약 20%) 낮춥니다.
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722))), uPitWarm * ${(0.2 / 0.55).toFixed(4)} * uOff);
       // 두꺼운 가장자리는 중앙보다 덜 비침. 내부 구조가 선명하게 드러나지 않도록 제한.
       diffuseColor.a = 1.0 - uFrostSee * uOff * (1.0 - 0.55 * frostEdge);
 `)
@@ -240,6 +259,69 @@ function updateLook() {
   fillLight.intensity = real ? 0.75 : 0;
 }
 
+// ───────── 제품 목록의 실사 렌더: 조명과 접지 그림자 ─────────
+// 접지 그림자: 밑면 바로 아래는 진하고 좁게, 바깥으로는 넓고 옅게 번집니다(바닥에 누운 판에 그린 번진 원 두 겹).
+function softDisc(stops) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 256;
+  const context = canvas.getContext('2d'), gradient = context.createRadialGradient(128, 128, 0, 128, 128, 128);
+  for (const [at, alpha] of stops) gradient.addColorStop(at, `rgba(0, 0, 0, ${alpha})`);
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, 256, 256);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+const shadowLayer = (stops, size) => {
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshBasicMaterial({ map: softDisc(stops), transparent: true, depthWrite: false, opacity: 0, toneMapped: false }));
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.renderOrder = -1;
+  mesh.visible = false;
+  scene.add(mesh);
+  return mesh;
+};
+const contactCore = shadowLayer([[0, 0.56], [0.6, 0.5], [0.74, 0.24], [0.88, 0.06], [1, 0]], DICE_SIZE * 1.62);
+const contactSoft = shadowLayer([[0, 0.13], [0.45, 0.09], [0.75, 0.03], [1, 0]], DICE_SIZE * 2.2);
+const SUN_HOME = new THREE.Vector3(-150, 700, 350), SUN_CATALOG = new THREE.Vector3(-700, 620, 120);
+const FILL_HOME = new THREE.Vector3(-60, 260, 800), FILL_CATALOG = new THREE.Vector3(300, 180, 800);
+const FILL_HOME_COLOR = new THREE.Color(0xfff6ec), FILL_CATALOG_COLOR = new THREE.Color(0xffc8a2);
+function updateCatalogLook() {
+  const look = catalogLook(), real = shopProgress > .5;
+  // 주광은 왼쪽 위 앞에서(왼쪽 면과 윗면이 밝게), 보조광은 약하고 따뜻하게(오른쪽 면은 살구빛 그늘).
+  sun.position.copy(SUN_HOME).lerp(SUN_CATALOG, look);
+  fillLight.position.copy(FILL_HOME).lerp(FILL_CATALOG, look);
+  fillLight.color.copy(FILL_HOME_COLOR).lerp(FILL_CATALOG_COLOR, look);
+  const off = OFF_LOOK.value;
+  if (real) {
+    // 불이 켜진 모습(마우스를 올렸을 때)은 Shop 화면에서 그 윗면 숫자일 때와 같은 밝기로 둡니다.
+    sun.intensity = THREE.MathUtils.lerp(0.9, THREE.MathUtils.lerp(0.9, 1.0, off), look);
+    fillLight.intensity = THREE.MathUtils.lerp(0.75, THREE.MathUtils.lerp(0.75, 0.8, off), look);
+  }
+  const studio = look > 0.5 && real && off > 0.5;   // 스튜디오 환경은 불이 꺼진 모습에서만 씁니다.
+  if (scene.environment !== (studio ? STUDIO_ENV : ROOM_ENV)) scene.environment = studio ? STUDIO_ENV : ROOM_ENV;
+  PIT_WARM.value = 0.55 * look;
+  if (look > 0) {
+    // 패널은 비치지 않는 무광 아이보리로, 금속은 조금 더 매끈한 새틴으로, 패널 사이 틈으로는 속의 따뜻한 빛이 살짝 비칩니다.
+    FROST_SEE.value = OFF_FROST.seeThrough * (1 - look);
+    const wantTransparent = FROST_SEE.value * off > 0.001;
+    if (ACRYLIC.transparent !== wantTransparent) { ACRYLIC.transparent = wantTransparent; ACRYLIC.needsUpdate = true; }
+    for (const material of steelMaterials) {
+      material.roughness = THREE.MathUtils.lerp(material.roughness, THREE.MathUtils.lerp(material.roughness, 0.36, off), look);
+      material.envMapIntensity = THREE.MathUtils.lerp(material.envMapIntensity, THREE.MathUtils.lerp(material.envMapIntensity, 1.0, off), look);
+    }
+    if (real) innerLight.intensity = THREE.MathUtils.lerp(innerLight.intensity, innerLight.intensity + 0.6 * off, look);
+  }
+  // 그림자는 목록에서만, 불이 꺼진 모습일 때 가장 진하고 불이 켜지면 옅어집니다.
+  const shade = THREE.MathUtils.smoothstep(catalogProgress, 0.6, 1) * (real ? 1 : 0) * (0.25 + 0.75 * off) * Math.max(0, 1 - lift / 120);
+  for (const layer of [contactCore, contactSoft]) {
+    layer.visible = shade > 0.001;
+    layer.material.opacity = shade;
+    layer.scale.setScalar(diceDepthScale);
+  }
+  contactCore.position.set(positionX + 2, 0.6, positionZ - 1);
+  contactSoft.position.set(positionX + 6, 0.4, positionZ - 3);
+}
+
 // ───────── Shop 화면: 주사위 외곽의 역광과 그림자 ─────────
 // 주사위만 따로 그린 뒤 그 실루엣을 흐려서, 외곽의 어느 쪽이 빛을 향하는지 화면에서 계산합니다.
 // 왼쪽 위 외곽에는 흰 역광이 들어와 경계가 살짝 풀리고, 오른쪽·아래 외곽에는 진한 그림자 선이 생깁니다.
@@ -326,7 +408,21 @@ function renderWithBacklight(strength) {
   drawScreenPass(rimPass, null);
 }
 
+// 제품 목록의 시선: 제품 사진처럼 낮은 정면 구도(높이 약 17°, 오른쪽 면이 더 정면). 목록을 벗어나면 원래 시선으로 돌아옵니다.
+const VIEW_TARGET = new THREE.Vector3(0, DICE_SIZE / 2, 0);
+const VIEW_DIR = new THREE.Vector3(380, 510, 760), VIEW_DISTANCE = VIEW_DIR.length();
+VIEW_DIR.normalize();
+const CATALOG_VIEW_DIR = new THREE.Vector3(-0.521, 0.292, 0.802).normalize();
+const catalogLook = () => THREE.MathUtils.smoothstep(catalogProgress, 0, 1);
+let shownView = -1;
 function updateCamera() {
+  const look = catalogLook();
+  if (look !== shownView) {
+    shownView = look;
+    camera.position.copy(VIEW_DIR).lerp(CATALOG_VIEW_DIR, look).normalize().multiplyScalar(VIEW_DISTANCE).add(VIEW_TARGET);
+    camera.up.set(0, 1, 0);
+    camera.lookAt(VIEW_TARGET);
+  }
   const scale = diceViewScale;
   const shiftX = diceScreenShift[0] / scale, shiftY = (diceScreenShift[1] + 5) / scale;
   camera.left = -innerWidth / (2 * scale) - shiftX;
@@ -372,7 +468,9 @@ function render() {
   // 휴대폰에서 구석으로 내려간 작은 주사위는 스크롤되는 내용에 가려지지 않게 화면 위층에 그립니다.
   renderer.domElement.style.zIndex = innerWidth <= 600 && !lollingWorld && writingViewProgress > .5 ? '6' : '1';
   // Shop 재질로 바뀌는 순간부터 외곽 효과를 서서히 켭니다.
-  const backlight = THREE.MathUtils.smoothstep(shopProgress, 0.5, 1);
+  // 제품 목록에서는 외곽 효과를 빼고(실사처럼 깨끗한 경계), 밑면이 바닥에 닿는 자리의 부드러운 접지 그림자를 대신 그립니다.
+  const backlight = THREE.MathUtils.smoothstep(shopProgress, 0.5, 1) * (1 - THREE.MathUtils.smoothstep(catalogProgress, 0, 0.6));
+  updateCatalogLook();
   if (backlight > 0) renderWithBacklight(backlight); else renderer.render(scene, camera);
 }
 
@@ -643,24 +741,29 @@ function startShop(restart = false, keepFace = false) {
   lastShopSize = innerWidth + 'x' + innerHeight;
 }
 // 띠 가운데 로고: Shop 화면에서는 Shop 시작 상태로 돌아갑니다(Memo 화면은 이미 시작 화면입니다).
-// 데스크톱에서는 제품 상세 화면에서 누르면 제품 목록으로 돌아갑니다.
+// 제품 상세 화면에서 누르면 제품 목록으로 돌아갑니다.
 document.getElementById('homeLogo').addEventListener('click', () => {
   if (!shopMode || !wasShop || shopCatalog) return;
   tipState = null; drag = null; heldLift = 0;
   document.body.style.cursor = '';
-  if (isPhone()) startShop(true); else openCatalog();
+  openCatalog();
 });
 
-// ───────── Shop 제품 목록(데스크톱) ─────────
+// ───────── Shop 제품 목록 ─────────
+// 휴대폰에는 마우스 올리기가 없으므로, 람페 칸을 누르면 주사위가 제자리에서 한 번 구른 뒤 상세 화면으로 넘어갑니다.
 // 람페 칸의 사진 영역은 뚫려 있어, 그 뒤로 Shop의 주사위와 바닥이 칸 크기로 줄어 보입니다.
 // 칸에 마우스를 올리면 주사위가 제자리에서 한 번 굴러 다음 윗면으로 넘어가고(배경도 그 숫자의 빛으로 바뀜), 벗어나면 되돌아 굴러옵니다.
 const catalogWindow = document.querySelector('.catalog-window');
 const catalogLampe = document.getElementById('catalogLampe');
-let catalogHover = false, catalogRolled = false;
-function startCatalog() {
+let catalogHover = false, catalogRolled = false, catalogLeaveAt = 0, catalogSnap = 0;
+// 제품 목록의 자세: 윗면 1, 화면 왼쪽 면 2, 오른쪽 면 4. 왼쪽으로 한 번 굴리면 윗면이 5가 됩니다.
+const CATALOG_POSE = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0), new THREE.Vector3(-1, 0, 0)));
+// snap: Memo 화면에서 Shop 버튼으로 들어올 때. 첫 몇 프레임 동안 바닥과 주사위를 칸 자리로 바로 옮깁니다.
+function startCatalog(snap = true) {
+  catalogSnap = snap ? 3 : 0;
   if (throwState) { throwState = null; currentRoll = null; lift = 0; }
   diceRotation = landingRotation(1);
-  faceQuaternion = topFaceQuaternion(diceRotation);
+  faceQuaternion = root.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(CATALOG_POSE);
   shownGlow = 0; diceGlowLevel = 0;
   shopYaw = REST_YAWS[0];
   shopCell = [0, 0]; shopWideCell = null; tipState = null; drag = null; heldLift = 0;
@@ -674,7 +777,7 @@ function startCatalog() {
 function openCatalog() {
   const from = diceScreenCenter ? diceScreenCenter.slice() : null;
   setShopCatalog(true);
-  startCatalog();
+  startCatalog(false);
   if (!from) return;
   const p = cellScreen(shopCell);
   const shiftY = shopRoomGoalY + from[1] - p.y;
@@ -685,7 +788,7 @@ function openCatalog() {
 // 목록에서 람페 칸을 누르면 제품 상세 화면으로 넘어갑니다.
 function openDetail() {
   if (!shopCatalog) return;
-  catalogHover = false;
+  catalogHover = false; catalogLeaveAt = 0;
   if (tipState?.mode === 'inPlace') {   // 굴러가는 중이면 그 윗면으로 바로 내려놓습니다.
     const rootQuaternion = root.getWorldQuaternion(new THREE.Quaternion());
     const axis = UP_AXIS.clone().cross(new THREE.Vector3(tipState.dir[0], 0, tipState.dir[1]));
@@ -696,24 +799,36 @@ function openDetail() {
   setShopCatalog(false);
   startShop(true, true);
 }
-catalogLampe.addEventListener('pointerenter', () => { catalogHover = true; });
-catalogLampe.addEventListener('pointerleave', () => { catalogHover = false; });
+catalogLampe.addEventListener('pointerenter', () => { if (!isPhone()) catalogHover = true; });
+catalogLampe.addEventListener('pointerleave', () => { if (!isPhone()) catalogHover = false; });
 catalogLampe.addEventListener('focus', () => { catalogHover = true; });
-catalogLampe.addEventListener('blur', () => { catalogHover = false; });
-catalogLampe.addEventListener('click', event => { event.preventDefault(); openDetail(); });
+catalogLampe.addEventListener('blur', () => { if (!catalogLeaveAt) catalogHover = false; });
+catalogLampe.addEventListener('click', event => {
+  event.preventDefault();
+  if (!isPhone()) { openDetail(); return; }
+  catalogHover = true;
+  catalogLeaveAt = performance.now();   // 굴림이 끝나면(updateCatalog) 잠깐 보여 준 뒤 넘어갑니다.
+});
 function updateCatalog() {
-  if (isPhone()) { setShopCatalog(false); startShop(); return; }
   setShopPanel(0);
+  if (catalogLeaveAt && !tipState && catalogRolled && performance.now() - catalogLeaveAt > 700) { catalogLeaveAt = 0; openDetail(); return; }
   // 주사위가 람페 칸 사진 영역의 가운데에 오도록 바닥과 주사위를 함께 옮깁니다.
   const r = catalogWindow.getBoundingClientRect();
   if (r.width) {
     const p = cellScreen(shopCell);
     shopRoomGoal = r.left + r.width / 2 - (p.x - shopRoomGoal);
     shopRoomGoalY = r.top + r.height / 2 - (p.y - shopRoomGoalY);
+    if (catalogSnap > 0) {
+      catalogSnap--;
+      diceScreenShift[0] += shopRoomGoal - shopRoomShift;
+      diceScreenShift[1] += shopRoomGoalY - shopRoomShiftY;
+      shopRoomShift = shopRoomGoal; shopRoomShiftY = shopRoomGoalY;
+      updateCamera();
+    }
   }
   if (!tipState && !throwState && window.glbDiceReady && shopProgress === 1 && catalogHover !== catalogRolled) {
     catalogRolled = catalogHover;
-    startTip(catalogHover ? [1, 0] : [-1, 0], false, 'inPlace');
+    startTip(catalogHover ? [-1, 0] : [1, 0], false, 'inPlace');   // 올리면 왼쪽으로, 벗어나면 오른쪽으로 되돌아 굴러옵니다.
   }
 }
 function updateShopPanel() {
@@ -835,7 +950,9 @@ function updateShop() {
   diceScreenCenter = [centerPx.x, centerPx.y];
   const nearestX = Math.min(Math.max(centerPx.x, 0), innerWidth), nearestY = Math.min(Math.max(centerPx.y, topBandHeight), innerHeight);
   const diceVisible = Math.hypot(centerPx.x - nearestX, centerPx.y - nearestY) < radiusPx;
-  if (!throwState && diceVisible) shownGlow += ((currentTopFace() - 1) / 5 - shownGlow) * (1 - Math.exp(-dt / 380));
+  // 제품 목록에서는 윗면 숫자와 상관없이 불이 꺼진 모습으로 놓이고, 마우스를 올려 굴렸을 때만 그 숫자의 빛이 켜집니다.
+  const glowTarget = shopCatalog && !catalogRolled ? 0 : (currentTopFace() - 1) / 5;
+  if (!throwState && diceVisible) shownGlow += (glowTarget - shownGlow) * (1 - Math.exp(-dt / 380));
   // 윗면 1의 밝기(emissiveIntensity 1, 속 광원 2.2)에서 시작해 6으로 갈수록 훨씬 밝아집니다.
   // 배경은 단계 그대로(diceGlowLevel), 주사위 밝기는 윗면 3~6에서 같은 만큼(0.1단계) 낮춰 씁니다.
   // 2(0.2)와 3(0.4) 사이에서 서서히 내려가므로, 3 이상도 늘 2보다는 밝습니다(3 → 0.3, 6 → 0.9).

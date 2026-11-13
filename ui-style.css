@@ -178,6 +178,11 @@ body.is-shop .shop-hint { display: block; }
 .shop-hint .ko { font-family: 'Wuerfel Latin', 'Gothic A1', "Apple SD Gothic Neo", sans-serif; }   /* Shop 지시문 한글 글꼴 */
 .instruction .ko { font-family: "AppleMyungjo", "Batang", "Noto Serif KR", serif; }   /* Memo 지시문 한글 글꼴: 애플명조 */
 .instruction .de { font-family: 'IM Fell English', serif; }   /* Memo 지시문 독일어 글꼴 */
+/* 데스크톱 Memo 시작 화면 지시문 크기(한국어·독일어 각각 14pt보다 1px 작게) */
+@media (min-width: 601px) {
+ .instruction .ko { font-size: calc(14pt - 1px); line-height: calc(16.8pt - 1.2px); }
+ .instruction .de { font-size: calc(14pt - 1px); line-height: calc(16.8pt - 1.2px); }
+}
 
 /* 휴대폰: Shop 안내는 한 단계 작게, 아래 여백은 화면 아래 안전 영역(홈 바)만큼 더 띄웁니다. */
 @media (max-width: 600px) {
@@ -284,7 +289,7 @@ body.shop-at-start .shop-hint.shop-start-hint { opacity: 1; }
  .glass-button { top: calc((var(--top-band) - 30px) / 2); height: 30px; padding: 0 18px; line-height: 30px; }   /* 휴대폰 전환 버튼 높이 */
  .mode-studio { left: 16px; }
  .face-buttons.left { top: calc(var(--top-band) + 16px); }
- .instruction { top: calc(var(--top-band) + 16px + var(--button-size) + 37px); }
+ .instruction { top: calc(var(--top-band) + 16px + var(--button-size) + 47px); }
 }
 /* 데스크톱 전용 */
 @media (min-width: 601px) {
@@ -351,11 +356,10 @@ body.shop-at-start .shop-hint.shop-start-hint { opacity: 1; }
  body.shop-panel-light .shop-panel-buy { border-color: #121212; }
 }
 
-/* ───────── Shop 제품 목록(데스크톱 전용) ─────────
+/* ───────── Shop 제품 목록 ─────────
    띠 아래에 흰 화면을 깔고, 람페 칸의 사진 영역(.catalog-window)만 비워 둡니다. 그 자리로 뒤의 3D 주사위와 바닥이 보입니다.
    칸 사이 경계는 1px 선, 칸 아래에는 왼쪽 끝에 제품 이름(독일어·한국어), 오른쪽 끝에 가격(원·유로)을 둡니다. */
 .catalog { display: none; }
-@media (min-width: 601px) {
  body.is-shop .catalog {
   display: flex; flex-direction: column; position: fixed; z-index: 3; top: var(--top-band); left: 0; right: 0; bottom: 0;
   opacity: 0; visibility: hidden; transition: opacity .4s, visibility 0s linear .4s;
@@ -383,4 +387,14 @@ body.shop-at-start .shop-hint.shop-start-hint { opacity: 1; }
  body.is-shop.shop-catalog .logo-brand { filter: none; }
  body.is-shop.shop-catalog .mode-memo { background: #f2f2f2; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
  body.shop-catalog .shop-hint { display: none; }
+/* 휴대폰: 칸 두 개가 화면 폭을 반씩 나누고, 인용문은 왼쪽 끝 맞춤('람페' 글자 시작과 같은 위치)입니다. */
+@media (max-width: 600px) {
+ .catalog-item { width: 50vw; }
+ .catalog-item.is-soon { border-right: 0; }
+ .catalog-fill { display: none; }
+ .catalog-window, .catalog-image { max-height: none; }
+ .catalog-caption { gap: 8px; padding: 12px 14px 16px; font-size: 12px; }
+ .catalog-quote { padding: 0 14px; text-align: left; font-size: 7pt; }   /* 휴대폰 목록 아래 인용문 크기(유로 가격보다 2pt 작게) */   /* 휴대폰 목록 아래 인용문 크기(유로 가격보다 2pt 작게) */
+ .catalog-quote + .catalog-quote { margin-top: 8px; }
+ .catalog-quote:last-child { padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
 }
