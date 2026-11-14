@@ -545,7 +545,8 @@ function setShopMode(on) {
   document.body.classList.toggle('is-shop', on);
   setShopCatalog(on);
   // Memo 화면에서 들어오면 주사위가 처음부터 람페 칸 자리·크기에 놓입니다(가운데에서 옮겨 가지 않음).
-  if (on) catalogProgress = 1;
+  // 바닥색·그림자도 첫 프레임부터 Shop 상태로 둡니다. 0.12초 동안 Memo의 검은 바닥과 번진 그림자가 칸 안에 비쳐 Memo 주사위처럼 보이던 것을 막습니다.
+  if (on) { catalogProgress = 1; shopProgress = 1; }
   if (!on && !throwState) document.querySelector('.instruction').hidden = false;
 }
 
