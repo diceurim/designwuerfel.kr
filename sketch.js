@@ -81,9 +81,9 @@ const FLOOR_FRAG = `
     // 빛의 세기도 단계에 따라 오릅니다: 윗면 1은 가운데가 은은하게(POOL_PEAK_MIN), 6은 가장 밝게.
     float peak = mix(${POOL_PEAK_MIN.toFixed(3)}, 1.0, uLevel);
     // 윗면 1(uOff = 1)은 조명이 꺼진 상태: 빛 웅덩이·따뜻한 빛 없이 흰 방입니다.
-    // 제품 목록(uCatalog = 1)에서는 흰 조명 대신 주사위에서 번지는 따뜻하고 은은한 빛으로 둡니다.
-    vec3 poolLight = mix(uLight, uWarm * 0.82, uCatalog);
-    vec3 room = mix(uDark, poolLight, pool * pool * (3.0 - 2.0 * pool) * peak * mix(1.0, 0.6, uCatalog) * (1.0 - uOff));
+    // 제품 목록(uCatalog = 1)에서 불이 켜지면 배경은 검정이고, 주사위 둘레에만 따뜻한 빛이 아주 옅게 번집니다.
+    vec3 poolLight = mix(uLight, uWarm * 0.5, uCatalog);
+    vec3 room = mix(mix(uDark, vec3(0.012), uCatalog), poolLight, pool * pool * (3.0 - 2.0 * pool) * peak * mix(1.0, 0.16, uCatalog) * (1.0 - uOff));
     // 주사위 바로 둘레의 따뜻한 빛(바닥 위 거리로 계산해 원근감을 따름)
     float near = length(vFloor * uFloorSize - uDice) / uSpillRadius;
     room = mix(room, uWarm, exp(-near * near) * (0.15 + 0.45 * uLevel) * (1.0 - uOff));
@@ -254,7 +254,9 @@ function draw() {
   }
   // 빛 웅덩이: 중심은 주사위를 따라가고, 반지름은 밝기 단계(윗면 숫자)에 따라 넓어집니다(화면 밖에서는 단계가 멈춰 있음).
   const poolCenter = diceScreenCenter || [width / 2, height / 2];
-  const poolRadius = Math.min(width, height) * lerp(POOL_RADIUS_MIN, POOL_RADIUS_MAX, diceGlowLevel);
+  // 제품 목록에서는 빛 웅덩이를 칸 크기에 맞춰 줄입니다.
+  const catalogCell = document.querySelector('.catalog-window');
+  const poolRadius = lerp(Math.min(width, height) * lerp(POOL_RADIUS_MIN, POOL_RADIUS_MAX, diceGlowLevel), (catalogCell ? catalogCell.offsetWidth : 0) * 0.55 || 1, catalogProgress);
   // Shop 안내 글자색: 안내 문구 자리의 실제 배경 밝기(바닥 셰이더와 같은 계산)를 보고, 늘 읽히는 색을 고릅니다.
   const hint = document.querySelector('.shop-hint');
   const hintBox = hint && shopMode ? hint.getBoundingClientRect() : null;   // position: fixed라 offsetParent로는 표시 여부를 알 수 없습니다.
@@ -324,7 +326,7 @@ function draw() {
     floorShader.setUniform('uPoolRadius', poolRadius * pixelDensity());
     floorShader.setUniform('uLevel', diceGlowLevel);
     floorShader.setUniform('uOff', off);
-    floorShader.setUniform('uCatalog', 0);   // 제품 목록에서도 빛 웅덩이는 Shop 화면과 같은 밝기입니다.
+    floorShader.setUniform('uCatalog', catalogProgress);
     floorShader.setUniform('uShop', shopProgress);
     floorShader.setUniform('uFloorSize', FLOOR_SIZE);
     floorShader.setUniform('uDice', [positionX, positionZ]);

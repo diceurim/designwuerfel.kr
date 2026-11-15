@@ -85,6 +85,8 @@ const OFF_FROST = { milk: 1, rim: 0.06, seeThrough: 0.065 };
 const FROST_MILK = { value: 0 }, FROST_RIM = { value: 0 }, FROST_SEE = { value: 0 };
 // 제품 목록의 실사 렌더: 파인 눈 속을 살구빛으로 살짝 가라앉힙니다(0이면 끔).
 const PIT_WARM = { value: 0 };
+// 제품 목록에서 불이 켜진 모습(마우스를 올려 굴린 뒤)의 정도: 검은 배경 위에서 패널이 금빛으로 빛나고, 속 전구가 비치는 자리는 하얗게 뜨겁습니다.
+const CATALOG_LIT = { value: 0 };
 ACRYLIC.onBeforeCompile = shader => {
   shader.uniforms.uGlowLevel = GLOW_LEVEL;
   shader.uniforms.uOff = OFF_LOOK;
@@ -92,13 +94,18 @@ ACRYLIC.onBeforeCompile = shader => {
   shader.uniforms.uFrostRim = FROST_RIM;
   shader.uniforms.uFrostSee = FROST_SEE;
   shader.uniforms.uPitWarm = PIT_WARM;
+  shader.uniforms.uCatalogLit = CATALOG_LIT;
   shader.vertexShader = shader.vertexShader
-    .replace('#include <common>', '#include <common>\nvarying vec3 vObjectNormal;\nvarying vec3 vObjectPosition;')
-    .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nvObjectNormal = objectNormal;\nvObjectPosition = position;');
+    .replace('#include <common>', '#include <common>\nvarying vec3 vObjectNormal;\nvarying vec3 vObjectPosition;\nvarying vec2 vLampOffset;')
+    .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nvObjectNormal = objectNormal;\nvObjectPosition = position;')
+    // 화면에서 주사위 중심(속 전구)까지의 거리(모델 단위): 전구가 패널 너머로 비치는 자리를 정합니다.
+    .replace('#include <project_vertex>', '#include <project_vertex>\nvLampOffset = (mvPosition.xy - (modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xy) / length(modelViewMatrix[0].xyz);');
   shader.fragmentShader = shader.fragmentShader
     .replace('#include <common>', `#include <common>
       varying vec3 vObjectNormal;
       varying vec3 vObjectPosition;
+      varying vec2 vLampOffset;
+      uniform float uCatalogLit;
       uniform float uGlowLevel;
       uniform float uOff;
       uniform float uFrostMilk, uFrostRim, uFrostSee, uPitWarm;
@@ -129,6 +136,8 @@ ACRYLIC.onBeforeCompile = shader => {
       diffuseColor.rgb = mix(diffuseColor.rgb, vec3(dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722))), uPitWarm * ${(0.2 / 0.55).toFixed(4)} * uOff);
       // 두꺼운 가장자리는 중앙보다 덜 비침. 내부 구조가 선명하게 드러나지 않도록 제한.
       diffuseColor.a = 1.0 - uFrostSee * uOff * (1.0 - 0.55 * frostEdge);
+      // 제품 목록의 불 켠 모습: 바깥 빛을 받는 바탕색은 낮추고, 빛은 아래 자체발광이 맡습니다.
+      diffuseColor.rgb *= mix(1.0, 0.06, uCatalogLit);
 `)
     .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
       float glow = (0.2 + 0.12 * uGlowLevel) + pow(1.0 - edge, 1.5 - 0.4 * uGlowLevel) * (0.32 + 0.2 * uGlowLevel) + smoothstep(0.9, 1.0, edge) * (0.18 + 0.1 * uGlowLevel);
@@ -143,7 +152,18 @@ ACRYLIC.onBeforeCompile = shader => {
       vec3 frostScatter = vec3(0.96, 0.935, 0.89) * ${OFF_GLOW.toFixed(3)} * (1.0 - 0.12 * frostEdge) * (1.0 - 0.35 * pit);
       totalEmissiveRadiance = mix(totalEmissiveRadiance, frostScatter, uFrostMilk * uOff);
       // 얇은 가장자리로 빛이 비쳐 은은하게 밝아짐(꺼졌을 때만)
-      totalEmissiveRadiance += vec3(1.0, 0.98, 0.95) * uFrostRim * uOff * smoothstep(0.55, 1.0, edge) * 0.35;`);
+      totalEmissiveRadiance += vec3(1.0, 0.98, 0.95) * uFrostRim * uOff * smoothstep(0.55, 1.0, edge) * 0.35;
+      // 제품 목록의 불 켠 모습(제품 사진 기준): 패널 가장자리는 짙은 호박색, 안쪽은 금빛,
+      // 속 전구가 비치는 자리(화면에서 주사위 중심 쪽)는 하얗게 달아오릅니다. 패널 둘레에는 얇은 빛 테가 돕니다.
+      float lampBody = 1.0 - smoothstep(0.2, 1.0, edge);
+      float lampReach = length(vLampOffset) / 0.06;
+      float lampHot = exp(-lampReach * lampReach * 6.5), lampWarm = exp(-lampReach * lampReach * 2.6);
+      vec3 lamp = mix(vec3(0.19, 0.08, 0.022), vec3(0.56, 0.26, 0.07), lampBody);
+      lamp = mix(lamp, vec3(1.0, 0.6, 0.2), lampWarm * (0.25 + 0.6 * lampBody));
+      lamp = mix(lamp, vec3(1.5, 1.3, 0.8), lampHot * (0.35 + 0.65 * lampBody));
+      lamp += vec3(0.2, 0.13, 0.05) * smoothstep(0.9, 1.0, edge);
+      lamp *= (1.0 + 0.22 * pit) * (0.95 + 0.1 * grain) * (0.78 + 0.4 * uGlowLevel);
+      totalEmissiveRadiance = mix(totalEmissiveRadiance, lamp, uCatalogLit);`);
 };
 // 아이보리 면은 흰 툰 재질, 금속 테두리는 먹색으로 바꾸고, 가장 바깥 모양을 조금 키운 뒷면으로 흰 외곽선을 그립니다.
 // Shop 화면에서 되돌릴 수 있도록 원래 재질과 툰 재질을 둘 다 기억해 둡니다.
@@ -294,20 +314,26 @@ function updateCatalogLook() {
   const off = OFF_LOOK.value;
   if (real) {
     // 불이 켜진 모습(마우스를 올렸을 때)은 Shop 화면에서 그 윗면 숫자일 때와 같은 밝기로 둡니다.
-    sun.intensity = THREE.MathUtils.lerp(0.9, THREE.MathUtils.lerp(0.9, 1.0, off), look);
-    fillLight.intensity = THREE.MathUtils.lerp(0.75, THREE.MathUtils.lerp(0.75, 0.8, off), look);
+    // 불이 켜진 모습에서는 바깥 조명을 낮춰, 검은 배경 위에서 주사위 속의 빛만 남깁니다.
+    sun.intensity = THREE.MathUtils.lerp(0.9, THREE.MathUtils.lerp(0.22, 1.0, off), look);
+    fillLight.intensity = THREE.MathUtils.lerp(0.75, THREE.MathUtils.lerp(0.12, 0.8, off), look);
   }
   const studio = look > 0.5 && real && off > 0.5;   // 스튜디오 환경은 불이 꺼진 모습에서만 씁니다.
   if (scene.environment !== (studio ? STUDIO_ENV : ROOM_ENV)) scene.environment = studio ? STUDIO_ENV : ROOM_ENV;
   PIT_WARM.value = 0.55 * look;
+  CATALOG_LIT.value = look * (1 - off);
+  // 불이 켜지면 패널 겉면의 주변 반사와 뽀얀 광택을 낮춰, 우윳빛으로 뜨지 않고 금빛이 깊게 남게 합니다.
+  ACRYLIC.envMapIntensity = THREE.MathUtils.lerp(0.45, 0.1, CATALOG_LIT.value);
+  ACRYLIC.sheen = THREE.MathUtils.lerp(0.35, 0.04, CATALOG_LIT.value);
   if (look > 0) {
     // 패널은 비치지 않는 무광 아이보리로, 금속은 조금 더 매끈한 새틴으로, 패널 사이 틈으로는 속의 따뜻한 빛이 살짝 비칩니다.
     FROST_SEE.value = OFF_FROST.seeThrough * (1 - look);
     const wantTransparent = FROST_SEE.value * off > 0.001;
     if (ACRYLIC.transparent !== wantTransparent) { ACRYLIC.transparent = wantTransparent; ACRYLIC.needsUpdate = true; }
     for (const material of steelMaterials) {
-      material.roughness = THREE.MathUtils.lerp(material.roughness, THREE.MathUtils.lerp(material.roughness, 0.36, off), look);
-      material.envMapIntensity = THREE.MathUtils.lerp(material.envMapIntensity, THREE.MathUtils.lerp(material.envMapIntensity, 1.0, off), look);
+      // 불이 켜지면 금속은 어두운 크롬처럼: 매끈하고, 주변 반사는 낮게.
+      material.roughness = THREE.MathUtils.lerp(material.roughness, THREE.MathUtils.lerp(0.3, 0.36, off), look);
+      material.envMapIntensity = THREE.MathUtils.lerp(material.envMapIntensity, THREE.MathUtils.lerp(0.75, 1.0, off), look);
     }
     if (real) innerLight.intensity = THREE.MathUtils.lerp(innerLight.intensity, innerLight.intensity + 0.6 * off, look);
   }
