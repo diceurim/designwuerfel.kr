@@ -81,7 +81,7 @@ const OFF_STEEL_ROUGHNESS = 0.62, OFF_STEEL_SHINE = 1.0;   // 꺼졌을 때 새�
 // 꺼졌을 때 패널의 반투명 아크릴 느낌(서리 낀 유리처럼). 0이면 지금처럼 불투명.
 //  milk: 우윳빛으로 밝고 부드럽게, rim: 얇은 가장자리로 빛이 비쳐 밝아짐, seeThrough: 중앙의 약한 비침(0~1), 가장자리는 더 불투명
 // B-1: 밝은 중앙, 옅은 회색 가장자리, 약한 비침. 윗면 1에서만 적용.
-const OFF_FROST = { milk: 1, rim: 0.06, seeThrough: 0.065 };
+const OFF_FROST = { milk: 1, rim: 0.06, seeThrough: 0.055 };
 const FROST_MILK = { value: 0 }, FROST_RIM = { value: 0 }, FROST_SEE = { value: 0 };
 // 제품 목록의 실사 렌더: 파인 눈 속을 살구빛으로 살짝 가라앉힙니다(0이면 끔).
 const PIT_WARM = { value: 0 };
@@ -132,10 +132,20 @@ ACRYLIC.onBeforeCompile = shader => {
       frostColor *= (0.992 + 0.016 * grain) * (1.0 - 0.055 * pit);
       diffuseColor.rgb = mix(diffuseColor.rgb, frostColor, uFrostMilk * uOff);
       diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.72, 0.58), pit * uPitWarm * uOff);
-      // 제품 목록의 실사 렌더: 패널 채도를 살짝(약 20%) 낮춥니다.
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722))), uPitWarm * ${(0.2 / 0.55).toFixed(4)} * uOff);
+      // 제품 목록의 실사 렌더(불 꺼짐): 패널 채도를 낮추고 크림빛 쪽으로 모읍니다.
+      float catalogOff = uPitWarm * ${(1 / 0.55).toFixed(4)} * uOff;
+      vec3 catalogCream = vec3(1.0, 0.965, 0.9) / 0.968;
+      diffuseColor.rgb = mix(diffuseColor.rgb, dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722)) * catalogCream, catalogOff * 0.8);
       // 두꺼운 가장자리는 중앙보다 덜 비침. 내부 구조가 선명하게 드러나지 않도록 제한.
-      diffuseColor.a = 1.0 - uFrostSee * uOff * (1.0 - 0.55 * frostEdge);
+      // 상세 화면의 반투명 느낌: 패널 가장자리로 갈수록 은은하게 진해지다가, 가장 바깥 경계에서 다시 밝아집니다.
+      // (제품 목록에서는 끔: uPitWarm이 0.55일 때 0)
+      float panelDetail = 1.0 - uPitWarm * ${(1 / 0.55).toFixed(4)};
+      float panelRim = smoothstep(0.93, 1.0, edge);
+      float panelDeep = smoothstep(0.55, 0.93, edge) * (1.0 - panelRim);
+      vec3 panelShade = mix(vec3(1.0), mix(vec3(0.85, 0.8, 0.74), vec3(0.86, 0.85, 0.83), uOff), panelDeep * panelDetail) * (1.0 + 0.22 * panelRim * panelDetail);
+      diffuseColor.rgb *= panelShade;
+      // 불이 켜졌을 때도 같은 만큼 비칩니다(제품 목록에서는 uFrostSee가 0이라 비치지 않음).
+      diffuseColor.a = 1.0 - uFrostSee * (1.0 - 0.55 * frostEdge);
       // 제품 목록의 불 켠 모습: 바깥 빛을 받는 바탕색은 낮추고, 빛은 아래 자체발광이 맡습니다.
       diffuseColor.rgb *= mix(1.0, 0.06, uCatalogLit);
 `)
@@ -153,6 +163,9 @@ ACRYLIC.onBeforeCompile = shader => {
       totalEmissiveRadiance = mix(totalEmissiveRadiance, frostScatter, uFrostMilk * uOff);
       // 얇은 가장자리로 빛이 비쳐 은은하게 밝아짐(꺼졌을 때만)
       totalEmissiveRadiance += vec3(1.0, 0.98, 0.95) * uFrostRim * uOff * smoothstep(0.55, 1.0, edge) * 0.35;
+      totalEmissiveRadiance *= panelShade;
+      // 제품 목록(불 꺼짐): 패널 빛도 같은 크림빛으로 채도를 낮춥니다.
+      totalEmissiveRadiance = mix(totalEmissiveRadiance, dot(totalEmissiveRadiance, vec3(0.2126, 0.7152, 0.0722)) * catalogCream, catalogOff * 0.8);
       // 제품 목록의 불 켠 모습(제품 사진 기준): 패널 가장자리는 짙은 호박색, 안쪽은 금빛,
       // 속 전구가 비치는 자리(화면에서 주사위 중심 쪽)는 하얗게 달아오릅니다. 패널 둘레에는 얇은 빛 테가 돕니다.
       float lampBody = 1.0 - smoothstep(0.2, 1.0, edge);
@@ -163,6 +176,10 @@ ACRYLIC.onBeforeCompile = shader => {
       lamp = mix(lamp, vec3(1.5, 1.3, 0.8), lampHot * (0.35 + 0.65 * lampBody));
       lamp += vec3(0.2, 0.13, 0.05) * smoothstep(0.9, 1.0, edge);
       lamp *= (1.0 + 0.22 * pit) * (0.95 + 0.1 * grain) * (0.78 + 0.4 * uGlowLevel);
+      // 불 켠 모습의 채도를 낮춰 크림빛에 가깝게 합니다(0이면 원래 금빛, 1이면 완전한 크림빛).
+      lamp = mix(lamp, dot(lamp, vec3(0.2126, 0.7152, 0.0722)) * catalogCream, 0.4);
+      // 불 켠 모습 전체 밝기(1이면 원래 밝기).
+      lamp *= 1.4;
       totalEmissiveRadiance = mix(totalEmissiveRadiance, lamp, uCatalogLit);`);
 };
 // 아이보리 면은 흰 툰 재질, 금속 테두리는 먹색으로 바꾸고, 가장 바깥 모양을 조금 키운 뒷면으로 흰 외곽선을 그립니다.
@@ -323,12 +340,12 @@ function updateCatalogLook() {
   PIT_WARM.value = 0.55 * look;
   CATALOG_LIT.value = look * (1 - off);
   // 불이 켜지면 패널 겉면의 주변 반사와 뽀얀 광택을 낮춰, 우윳빛으로 뜨지 않고 금빛이 깊게 남게 합니다.
-  ACRYLIC.envMapIntensity = THREE.MathUtils.lerp(0.45, 0.1, CATALOG_LIT.value);
-  ACRYLIC.sheen = THREE.MathUtils.lerp(0.35, 0.04, CATALOG_LIT.value);
+  ACRYLIC.envMapIntensity = THREE.MathUtils.lerp(0.45, 0.2, CATALOG_LIT.value);
+  ACRYLIC.sheen = THREE.MathUtils.lerp(0.35, 0.24, CATALOG_LIT.value);
   if (look > 0) {
     // 패널은 비치지 않는 무광 아이보리로, 금속은 조금 더 매끈한 새틴으로, 패널 사이 틈으로는 속의 따뜻한 빛이 살짝 비칩니다.
     FROST_SEE.value = OFF_FROST.seeThrough * (1 - look);
-    const wantTransparent = FROST_SEE.value * off > 0.001;
+    const wantTransparent = FROST_SEE.value > 0.001;
     if (ACRYLIC.transparent !== wantTransparent) { ACRYLIC.transparent = wantTransparent; ACRYLIC.needsUpdate = true; }
     for (const material of steelMaterials) {
       // 불이 켜지면 금속은 어두운 크롬처럼: 매끈하고, 주변 반사는 낮게.
@@ -995,7 +1012,7 @@ function updateShop() {
   OFF_LOOK.value = off;
   FROST_MILK.value = OFF_FROST.milk; FROST_RIM.value = OFF_FROST.rim; FROST_SEE.value = OFF_FROST.seeThrough;
   // 뒤가 비치려면 투명 재질이어야 합니다(비침이 있을 때만 켬).
-  const wantTransparent = OFF_FROST.seeThrough * off > 0.001;
+  const wantTransparent = OFF_FROST.seeThrough > 0.001;
   if (ACRYLIC.transparent !== wantTransparent) { ACRYLIC.transparent = wantTransparent; ACRYLIC.needsUpdate = true; }
   for (const material of steelMaterials) {
     material.roughness = THREE.MathUtils.lerp(0.45, OFF_STEEL_ROUGHNESS, off);
