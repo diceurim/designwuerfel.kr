@@ -387,6 +387,8 @@ body.shop-at-start .shop-hint.shop-start-hint { opacity: 1; }
  body.is-shop.shop-catalog .logo-brand { filter: none; }
  body.is-shop.shop-catalog .mode-memo { background: #f2f2f2; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
  body.shop-catalog .shop-hint { display: none; }
+/* [테스트] 휴대폰 큰 칸 상세 화면에서만 쓰는 윗면 숫자 표시와 제품 설명은 그 밖의 화면(데스크톱 포함)에서는 늘 감춥니다. */
+.catalog-faces, .catalog-detail-info { display: none; }
 /* 휴대폰: 칸 두 개가 화면 폭을 반씩 나누고, 인용문은 왼쪽 끝 맞춤('람페' 글자 시작과 같은 위치)입니다. */
 @media (max-width: 600px) {
  .catalog-item { width: 50vw; }
@@ -414,7 +416,6 @@ body.shop-at-start .shop-hint.shop-start-hint { opacity: 1; }
  body.catalog-detail.catalog-detail-down .catalog-window { height: calc(100svh - var(--top-band)); }
  body.catalog-detail .catalog-caption { flex: none; }
  /* 사진 영역 아래쪽 가운데의 윗면 숫자 표시: 반투명 흰색, 지금 윗면 숫자만 흰색. 밝은 회색 배경에서도 보이도록 옅은 그림자를 둡니다. */
- .catalog-faces { display: none; }
  body.catalog-detail .catalog-window { position: relative; }
  body.catalog-detail .catalog-faces {
   display: flex; gap: 14px; position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); pointer-events: none;
@@ -425,7 +426,6 @@ body.shop-at-start .shop-hint.shop-start-hint { opacity: 1; }
  body.catalog-detail .catalog-faces.is-dark { color: #12121259; text-shadow: none; }
  body.catalog-detail .catalog-faces.is-dark .is-on { color: #121212; }
  body.catalog-detail.catalog-detail-down .catalog-faces { bottom: calc(16px + env(safe-area-inset-bottom)); }
- .catalog-detail-info { display: none; }
  body.catalog-detail .catalog-detail-info { display: flex; flex-direction: column; flex: none; background: #fff; padding: 4px 14px 0; font-weight: 300; letter-spacing: normal; }
  .catalog-detail-info .shop-panel-actions { order: 0; display: flex; justify-content: center; gap: 32px; margin: 0; }
  .catalog-detail-info .shop-panel-buy { display: block; flex: none; width: 128px; height: 34px; padding: 0; border: 0; background: transparent; color: #121212; font: inherit; font-size: 8.5pt; text-decoration: underline; text-underline-offset: 4px; }
