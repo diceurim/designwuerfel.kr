@@ -901,7 +901,7 @@ function rollToFace(target, prefer) {
   fastTip(prefer);
 }
 // 큰 칸 상세 화면에서 다음 숫자로 넘어갈 때는 보통보다 1.5배 빠르게 구릅니다.
-const DETAIL_TIP_SPEED = 1.5;
+const DETAIL_TIP_SPEED = 1.3;
 function fastTip(dir) {
   startTip(dir, false, 'inPlace');
   tipState.time = TIP_TIME / DETAIL_TIP_SPEED;
