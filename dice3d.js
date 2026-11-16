@@ -874,24 +874,48 @@ catalogWindow.addEventListener('pointerup', event => {
   if (!catalogDetail || !detailPress) return;
   const dx = event.clientX - detailPress.x, dy = event.clientY - detailPress.y;
   detailPress = null;
-  if (tipState || throwState || !window.glbDiceReady) return;
+  if (tipState || detailQueue || throwState || !window.glbDiceReady) return;
+  // 윗면 숫자는 늘 순서대로 바뀝니다: 누르기·왼쪽·위아래로 밀기는 다음 숫자(6 다음은 1), 오른쪽으로 밀기는 이전 숫자.
+  const face = currentTopFace(), next = face % 6 + 1, previous = (face + 4) % 6 + 1;
   if (Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy)) {
-    startTip([Math.sign(dx), 0], false, 'inPlace');   // 옆으로 밀면 그쪽으로 제자리에서 구릅니다.
+    rollToFace(dx < 0 ? next : previous, [Math.sign(dx), 0]);
   } else if (Math.abs(dy) > 30) {
     setCatalogDetail(true, dy > 0);
     if (dy > 0) detailScroller.scrollTo({ top: 0, behavior: 'smooth' });
-    startTip([0, Math.sign(dy)], false, 'inPlace');
+    rollToFace(next, [0, Math.sign(dy)]);
   } else if (Math.hypot(dx, dy) < 12) {
-    startTip([-1, 0], false, 'inPlace');
+    rollToFace(next, [-1, 0]);
   }
 });
+// 원하는 숫자가 윗면에 오도록 제자리에서 굴립니다. 밀어 준 방향(prefer)으로 굴러 그 숫자가 오면 그쪽으로,
+// 아니면 그 숫자가 옆면에 있는 쪽으로 한 번 구릅니다. 그 숫자가 바닥에 있으면(1↔6, 2↔5, 3↔4) 같은 방향으로 두 번 구릅니다.
+let detailQueue = null, detailTarget = 0;
+function rollToFace(target, prefer) {
+  const from = root.getWorldQuaternion(new THREE.Quaternion()).multiply(faceQuaternion);
+  detailTarget = target;
+  for (const dir of [prefer, [-1, 0], [1, 0], [0, -1], [0, 1]]) {
+    const axis = UP_AXIS.clone().cross(new THREE.Vector3(dir[0], 0, dir[1]));
+    if (currentTopFace(new THREE.Quaternion().setFromAxisAngle(axis, Math.PI / 2).multiply(from)) === target) { fastTip(dir); return; }
+  }
+  detailQueue = prefer;
+  fastTip(prefer);
+}
+// 큰 칸 상세 화면에서 다음 숫자로 넘어갈 때는 보통보다 1.5배 빠르게 구릅니다.
+const DETAIL_TIP_SPEED = 1.5;
+function fastTip(dir) {
+  startTip(dir, false, 'inPlace');
+  tipState.time = TIP_TIME / DETAIL_TIP_SPEED;
+}
 catalogWindow.addEventListener('pointercancel', () => { detailPress = null; });
 const catalogFaces = [...document.querySelectorAll('.catalog-faces span')];
 let shownFace = 0;
 function updateCatalog() {
   setShopPanel(0);
   // 큰 칸 상세 화면의 윗면 숫자 표시: 지금 윗면 숫자만 흰색으로 켭니다.
-  const face = catalogDetail ? currentTopFace() : 0;
+  if (detailQueue && !tipState) { const dir = detailQueue; detailQueue = null; fastTip(dir); }
+  if (!tipState && !detailQueue) detailTarget = 0;
+  // 두 번 구르는 동안에도 표시는 처음부터 도착할 숫자를 가리킵니다.
+  const face = catalogDetail ? detailTarget || currentTopFace() : 0;
   if (face !== shownFace) { shownFace = face; catalogFaces.forEach((mark, i) => mark.classList.toggle('is-on', i + 1 === face)); }
   // 불이 꺼진 밝은 회색 배경에서는 숫자를 어둡게 바꿉니다.
   if (catalogFaces.length) catalogFaces[0].parentElement.classList.toggle('is-dark', OFF_LOOK.value > 0.5);
@@ -912,7 +936,7 @@ function updateCatalog() {
       updateCamera();
     }
   }
-  if (!tipState && !throwState && window.glbDiceReady && shopProgress === 1 && catalogHover !== catalogRolled) {
+  if (!catalogDetail && !tipState && !throwState && window.glbDiceReady && shopProgress === 1 && catalogHover !== catalogRolled) {
     catalogRolled = catalogHover;
     startTip(catalogHover ? [-1, 0] : [1, 0], false, 'inPlace');   // 올리면 왼쪽으로, 벗어나면 오른쪽으로 되돌아 굴러옵니다.
   }
@@ -958,7 +982,7 @@ function updateShop() {
   let scale = depthScale(center.z);
   if (tipState) {
     // 바닥에 닿은 앞쪽 모서리를 축으로 90° 넘어갑니다(벽에 막히면 살짝 들렸다 돌아옴).
-    const t = Math.min(1, (now - tipState.start) / (tipState.bump ? BUMP_TIME : TIP_TIME));
+    const t = Math.min(1, (now - tipState.start) / (tipState.time || (tipState.bump ? BUMP_TIME : TIP_TIME)));
     const eased = tipState.bump ? Math.sin(Math.PI * t) * 0.32 : (1 - Math.cos(Math.PI * t)) / 2 * Math.PI / 2;
     const d = new THREE.Vector3(tipState.dir[0], 0, tipState.dir[1]);
     const axis = new THREE.Vector3(0, 1, 0).cross(d);
@@ -1038,7 +1062,8 @@ function updateShop() {
   const diceVisible = Math.hypot(centerPx.x - nearestX, centerPx.y - nearestY) < radiusPx;
   // 제품 목록에서는 윗면 숫자와 상관없이 불이 꺼진 모습으로 놓이고, 마우스를 올려 굴렸을 때만 그 숫자의 빛이 켜집니다.
   // 휴대폰 큰 칸 상세 화면에서는 굴러간 윗면 숫자의 빛을 그대로 켭니다.
-  const glowTarget = shopCatalog && !catalogRolled && !catalogDetail ? 0 : (currentTopFace() - 1) / 5;
+  // 두 번 구르는 동안(예: 3 → 4)에는 중간에 잠깐 윗면에 오는 숫자의 빛으로 바뀌지 않고, 도착할 숫자의 빛으로 바로 옮겨 갑니다(배경이 깜빡이지 않게).
+  const glowTarget = shopCatalog && !catalogRolled && !catalogDetail ? 0 : ((catalogDetail && detailTarget || currentTopFace()) - 1) / 5;
   if (!throwState && diceVisible) shownGlow += (glowTarget - shownGlow) * (1 - Math.exp(-dt / 380));
   // 윗면 1의 밝기(emissiveIntensity 1, 속 광원 2.2)에서 시작해 6으로 갈수록 훨씬 밝아집니다.
   // 배경은 단계 그대로(diceGlowLevel), 주사위 밝기는 윗면 3~6에서 같은 만큼(0.1단계) 낮춰 씁니다.

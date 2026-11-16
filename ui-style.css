@@ -405,6 +405,11 @@ body.shop-at-start .shop-hint.shop-start-hint { opacity: 1; }
  body.catalog-detail.catalog-detail-down .catalog { overflow: hidden; }
  body.catalog-detail .catalog-item.is-soon { display: none; }
  body.catalog-detail #catalogLampe { width: 100vw; border-right: 0; border-bottom: 0; cursor: default; }
+ /* 휴대폰 브라우저가 링크를 누를 때 칸 전체(이름·가격 띠까지)에 회색으로 번쩍이는 표시를 끄고, 길게 눌러도 글자가 선택되지 않게 합니다.
+    주사위 손짓은 사진 영역(.catalog-window)에서만 받습니다. */
+ .catalog-item { -webkit-tap-highlight-color: transparent; }
+ body.catalog-detail #catalogLampe, body.catalog-detail .catalog-window { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+ body.catalog-detail #catalogLampe:focus, body.catalog-detail #catalogLampe:focus-visible { outline: none; }
  body.catalog-detail .catalog-window { aspect-ratio: auto; height: 100vw; touch-action: none; transition: height .45s cubic-bezier(.3, .7, .3, 1); }
  body.catalog-detail.catalog-detail-down .catalog-window { height: calc(100svh - var(--top-band)); }
  body.catalog-detail .catalog-caption { flex: none; }
