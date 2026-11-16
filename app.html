@@ -120,10 +120,10 @@
 <link rel="stylesheet" href="lolling.css?v=5">
 <link rel="stylesheet" href="experiment.css?v=14">
 <script src="experiment.js?v=5"></script>
-<link rel="stylesheet" href="ui-style.css?v=catalog-detail2">
+<link rel="stylesheet" href="ui-style.css?v=catalog-faces2">
 <!-- 3D 주사위: Blender에서 만든 GLB 모델과 굴림 애니메이션을 three.js로 그립니다. -->
 <script type="importmap">{ "imports": { "three": "./lib/three/three.module.min.js", "three/addons/": "./lib/three/addons/" } }</script>
-<script type="module" src="dice3d.js?v=101-catalog-detail-window"></script>
+<script type="module" src="dice3d.js?v=103-catalog-faces-dark"></script>
 </head>
 <body>
   <!-- 화면 이름표: 열린 화면에 따라 왼쪽 위 구석에 표시됩니다(시작 화면에서는 숨김). -->
@@ -152,7 +152,10 @@
   <section id="shopCatalog" class="catalog" aria-label="Shop 제품 목록">
     <div class="catalog-row">
       <a id="catalogLampe" class="catalog-item" href="#lampe" aria-label="Lampe 람페, ₩320,000 210 €, 상세 보기">
-        <span class="catalog-window" aria-hidden="true"></span>
+        <span class="catalog-window" aria-hidden="true">
+          <!-- [테스트] 휴대폰 큰 칸 상세 화면: 지금 윗면 숫자를 알려 주는 표시(그 숫자만 흰색으로 켜짐) -->
+          <span class="catalog-faces"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span></span>
+        </span>
         <span class="catalog-caption">
           <span class="catalog-name"><span lang="de">Lampe</span><span class="ko" lang="ko">람페</span></span>
           <span class="catalog-price"><span>₩320,000</span><span lang="de">210 €</span></span>

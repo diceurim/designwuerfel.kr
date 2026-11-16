@@ -875,7 +875,9 @@ catalogWindow.addEventListener('pointerup', event => {
   const dx = event.clientX - detailPress.x, dy = event.clientY - detailPress.y;
   detailPress = null;
   if (tipState || throwState || !window.glbDiceReady) return;
-  if (Math.abs(dy) > 30 && Math.abs(dy) > Math.abs(dx)) {
+  if (Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy)) {
+    startTip([Math.sign(dx), 0], false, 'inPlace');   // 옆으로 밀면 그쪽으로 제자리에서 구릅니다.
+  } else if (Math.abs(dy) > 30) {
     setCatalogDetail(true, dy > 0);
     if (dy > 0) detailScroller.scrollTo({ top: 0, behavior: 'smooth' });
     startTip([0, Math.sign(dy)], false, 'inPlace');
@@ -884,8 +886,15 @@ catalogWindow.addEventListener('pointerup', event => {
   }
 });
 catalogWindow.addEventListener('pointercancel', () => { detailPress = null; });
+const catalogFaces = [...document.querySelectorAll('.catalog-faces span')];
+let shownFace = 0;
 function updateCatalog() {
   setShopPanel(0);
+  // 큰 칸 상세 화면의 윗면 숫자 표시: 지금 윗면 숫자만 흰색으로 켭니다.
+  const face = catalogDetail ? currentTopFace() : 0;
+  if (face !== shownFace) { shownFace = face; catalogFaces.forEach((mark, i) => mark.classList.toggle('is-on', i + 1 === face)); }
+  // 불이 꺼진 밝은 회색 배경에서는 숫자를 어둡게 바꿉니다.
+  if (catalogFaces.length) catalogFaces[0].parentElement.classList.toggle('is-dark', OFF_LOOK.value > 0.5);
   if (catalogDetail && !isPhone()) setCatalogDetail(false);
   if (catalogLeaveAt && !tipState && catalogRolled && performance.now() - catalogLeaveAt > 700) { catalogLeaveAt = 0; openDetail(); return; }
   // 주사위가 람페 칸 사진 영역의 가운데에 오도록 바닥과 주사위를 함께 옮깁니다.
