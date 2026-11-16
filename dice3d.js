@@ -786,7 +786,7 @@ function startShop(restart = false, keepFace = false) {
 // 띠 가운데 로고: Shop 화면에서는 Shop 시작 상태로 돌아갑니다(Memo 화면은 이미 시작 화면입니다).
 // 제품 상세 화면에서 누르면 제품 목록으로 돌아갑니다.
 document.getElementById('homeLogo').addEventListener('click', () => {
-  if (!shopMode || !wasShop || shopCatalog) return;
+  if (!shopMode || !wasShop || (shopCatalog && !catalogDetail)) return;
   tipState = null; drag = null; heldLift = 0;
   document.body.style.cursor = '';
   openCatalog();
@@ -849,11 +849,44 @@ catalogLampe.addEventListener('blur', () => { if (!catalogLeaveAt) catalogHover 
 catalogLampe.addEventListener('click', event => {
   event.preventDefault();
   if (!isPhone()) { openDetail(); return; }
-  catalogHover = true;
-  catalogLeaveAt = performance.now();   // 굴림이 끝나면(updateCatalog) 잠깐 보여 준 뒤 넘어갑니다.
+  // [테스트] 휴대폰: 람페를 누르면 바로 큰 칸 상세 화면이 됩니다(주사위는 윗면 1, 불 꺼진 모습 그대로).
+  if (!catalogDetail) { setCatalogDetail(true); catalogHover = false; catalogLeaveAt = 0; catalogSnap = 3; detailScroller.scrollTop = 0; }
 });
+// [테스트] 휴대폰 큰 칸 상세 화면의 손짓:
+// - 사진 영역을 누르면 주사위가 제자리에서 다음 면으로 한 번씩 굴러갑니다(목록에서 마우스를 올렸을 때처럼).
+// - 아래로 밀면 제자리에서 아래로 굴러 이름·가격·인용문이 내려가고, 위로 밀면 위로 굴러 다시 올라옵니다.
+let detailPress = null;
+// 구매 패널의 구매 버튼·제품 설명(한국어·독일어)·상세 사진을 큰 칸 상세 화면의 이름·가격 아래로 복제해 둡니다(내용은 한 곳에서만 고치면 됩니다).
+const detailInfo = document.querySelector('.catalog-detail-info');
+for (const part of ['.shop-panel-actions', '.shop-panel-specs:not(.shop-panel-specs-de)', '.shop-panel-specs-de', '.shop-panel-gallery']) {
+  const copy = shopPanel.querySelector(part).cloneNode(true);
+  copy.removeAttribute('tabindex');
+  detailInfo.append(copy);
+}
+const detailScroller = document.getElementById('shopCatalog');
+// 손짓은 사진 영역(주사위가 보이는 곳)에서만 받습니다. 이름·가격·설명 쪽을 누르거나 밀면 그냥 스크롤됩니다.
+catalogWindow.addEventListener('pointerdown', event => {
+  if (!catalogDetail) return;
+  detailPress = { x: event.clientX, y: event.clientY };
+  try { catalogWindow.setPointerCapture(event.pointerId); } catch {}   // 손가락이 사진 영역 밖으로 나가 떼어도 같은 손짓으로 받습니다.
+});
+catalogWindow.addEventListener('pointerup', event => {
+  if (!catalogDetail || !detailPress) return;
+  const dx = event.clientX - detailPress.x, dy = event.clientY - detailPress.y;
+  detailPress = null;
+  if (tipState || throwState || !window.glbDiceReady) return;
+  if (Math.abs(dy) > 30 && Math.abs(dy) > Math.abs(dx)) {
+    setCatalogDetail(true, dy > 0);
+    if (dy > 0) detailScroller.scrollTo({ top: 0, behavior: 'smooth' });
+    startTip([0, Math.sign(dy)], false, 'inPlace');
+  } else if (Math.hypot(dx, dy) < 12) {
+    startTip([-1, 0], false, 'inPlace');
+  }
+});
+catalogWindow.addEventListener('pointercancel', () => { detailPress = null; });
 function updateCatalog() {
   setShopPanel(0);
+  if (catalogDetail && !isPhone()) setCatalogDetail(false);
   if (catalogLeaveAt && !tipState && catalogRolled && performance.now() - catalogLeaveAt > 700) { catalogLeaveAt = 0; openDetail(); return; }
   // 주사위가 람페 칸 사진 영역의 가운데에 오도록 바닥과 주사위를 함께 옮깁니다.
   const r = catalogWindow.getBoundingClientRect();
@@ -861,8 +894,9 @@ function updateCatalog() {
     const p = cellScreen(shopCell);
     shopRoomGoal = r.left + r.width / 2 - (p.x - shopRoomGoal);
     shopRoomGoalY = r.top + r.height / 2 - (p.y - shopRoomGoalY);
-    if (catalogSnap > 0) {
-      catalogSnap--;
+    // 큰 칸 상세 화면은 위아래로 스크롤되므로, 주사위가 사진 영역을 늘 같은 프레임에 따라갑니다.
+    if (catalogSnap > 0 || catalogDetail) {
+      if (catalogSnap > 0) catalogSnap--;
       diceScreenShift[0] += shopRoomGoal - shopRoomShift;
       diceScreenShift[1] += shopRoomGoalY - shopRoomShiftY;
       shopRoomShift = shopRoomGoal; shopRoomShiftY = shopRoomGoalY;
@@ -994,7 +1028,8 @@ function updateShop() {
   const nearestX = Math.min(Math.max(centerPx.x, 0), innerWidth), nearestY = Math.min(Math.max(centerPx.y, topBandHeight), innerHeight);
   const diceVisible = Math.hypot(centerPx.x - nearestX, centerPx.y - nearestY) < radiusPx;
   // 제품 목록에서는 윗면 숫자와 상관없이 불이 꺼진 모습으로 놓이고, 마우스를 올려 굴렸을 때만 그 숫자의 빛이 켜집니다.
-  const glowTarget = shopCatalog && !catalogRolled ? 0 : (currentTopFace() - 1) / 5;
+  // 휴대폰 큰 칸 상세 화면에서는 굴러간 윗면 숫자의 빛을 그대로 켭니다.
+  const glowTarget = shopCatalog && !catalogRolled && !catalogDetail ? 0 : (currentTopFace() - 1) / 5;
   if (!throwState && diceVisible) shownGlow += (glowTarget - shownGlow) * (1 - Math.exp(-dt / 380));
   // 윗면 1의 밝기(emissiveIntensity 1, 속 광원 2.2)에서 시작해 6으로 갈수록 훨씬 밝아집니다.
   // 배경은 단계 그대로(diceGlowLevel), 주사위 밝기는 윗면 3~6에서 같은 만큼(0.1단계) 낮춰 씁니다.

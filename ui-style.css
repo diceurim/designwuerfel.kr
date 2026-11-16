@@ -397,4 +397,24 @@ body.shop-at-start .shop-hint.shop-start-hint { opacity: 1; }
  .catalog-quote { padding: 0 14px; text-align: left; font-size: 7pt; }   /* 휴대폰 목록 아래 인용문 크기(유로 가격보다 2pt 작게) */   /* 휴대폰 목록 아래 인용문 크기(유로 가격보다 2pt 작게) */
  .catalog-quote + .catalog-quote { margin-top: 8px; }
  .catalog-quote:last-child { padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+ /* [테스트] 람페를 누른 뒤의 큰 칸 상세 화면: 람페 칸 하나가 화면 폭을 채우고(사진 영역은 정사각형), 아래에 이름·가격과 인용문이 놓입니다.
+    주사위를 아래로 굴리면 사진 영역이 화면 아래까지 늘어나며 이름·가격·인용문이 아래로 밀려 내려갑니다. */
+ /* 이름·가격 아래로 구매하기·카트에 추가 → 제품 설명(한국어·독일어) → 상세 사진 → 인용문이 이어지고, 화면 전체가 위아래로 스크롤됩니다. */
+ body.catalog-detail .catalog { overflow: hidden auto; overscroll-behavior: contain; scrollbar-width: none; }
+ body.catalog-detail .catalog::-webkit-scrollbar { display: none; }
+ body.catalog-detail.catalog-detail-down .catalog { overflow: hidden; }
+ body.catalog-detail .catalog-item.is-soon { display: none; }
+ body.catalog-detail #catalogLampe { width: 100vw; border-right: 0; border-bottom: 0; cursor: default; }
+ body.catalog-detail .catalog-window { aspect-ratio: auto; height: 100vw; touch-action: none; transition: height .45s cubic-bezier(.3, .7, .3, 1); }
+ body.catalog-detail.catalog-detail-down .catalog-window { height: calc(100svh - var(--top-band)); }
+ body.catalog-detail .catalog-caption { flex: none; }
+ .catalog-detail-info { display: none; }
+ body.catalog-detail .catalog-detail-info { display: flex; flex-direction: column; flex: none; background: #fff; padding: 4px 14px 0; font-weight: 300; letter-spacing: normal; }
+ .catalog-detail-info .shop-panel-actions { order: 0; display: flex; justify-content: center; gap: 32px; margin: 0; }
+ .catalog-detail-info .shop-panel-buy { display: block; flex: none; width: 128px; height: 34px; padding: 0; border: 0; background: transparent; color: #121212; font: inherit; font-size: 8.5pt; text-decoration: underline; text-underline-offset: 4px; }
+ .catalog-detail-info .shop-panel-specs { display: block; order: 0; margin: 24px 0 0; padding: 0; list-style: none; font-size: 7.75pt; line-height: 17px; font-weight: 300; }
+ .catalog-detail-info .shop-panel-specs-de { margin-top: 12px; }
+ .catalog-detail-info .shop-panel-gallery { display: flex; flex-direction: column; order: 0; width: auto; height: auto; overflow: visible; gap: 12px; margin-top: 28px; padding: 0 0 32px; }
+ .catalog-detail-info .shop-panel-gallery img { width: 100%; aspect-ratio: 4 / 5; object-fit: contain; background: #fff; }
+ body.catalog-detail .catalog-rest { flex: none; padding-top: 28px; border-top: 1px solid #121212; }
 }

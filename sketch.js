@@ -32,6 +32,8 @@ const PHONE_DOCK_SCALE = .55;
 let shopMode = false;
 // Shop 제품 목록: Shop에 들어오면 먼저 보이고, 람페 칸을 누르면 지금의 제품 상세 화면으로 넘어갑니다.
 let shopCatalog = false, catalogProgress = 0, catalogScale = 1;
+// [테스트] 휴대폰: 목록에서 람페를 누르면 큰 칸 하나(사진 영역 + 이름·가격 + 인용문)로 보는 상세 화면
+let catalogDetail = false;
 const CATALOG_DICE = 0.32;   // 목록 칸의 사진 영역 폭에 대한 주사위 한 변의 비율
 let shopProgress = 0;
 // Shop 화면에서 주사위가 안쪽(뒤)으로 갈수록 작아지는 비율. 그림자 크기도 함께 맞춥니다(dice3d.js가 정합니다).
@@ -555,6 +557,14 @@ function setShopMode(on) {
 function setShopCatalog(on) {
   shopCatalog = on;
   document.body.classList.toggle('shop-catalog', on);
+  setCatalogDetail(false);
+}
+// down: 주사위를 아래로 굴려 이름·가격·인용문이 내려가고 사진 영역이 화면을 채운 상태
+function setCatalogDetail(on, down = false) {
+  catalogDetail = on;
+  document.body.classList.toggle('catalog-detail', on);
+  document.body.classList.toggle('catalog-detail-down', on && down);
+  if (!on) document.getElementById('shopCatalog').scrollTop = 0;
 }
 
 function setupFaceButtons() {
