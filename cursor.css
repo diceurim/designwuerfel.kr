@@ -1,0 +1,19 @@
+/* Hand-drawn arrow, including the viewer iframe and mode buttons. */
+@media (any-pointer: fine) {
+  html, body, body * {
+    cursor: url('./assets/cursors/handdrawn-arrow.svg') 5 5, auto !important;
+  }
+  input, textarea, [contenteditable="true"], [contenteditable=""] {
+    cursor: text !important;
+  }
+  html.shop-entry-cursor, html.shop-entry-cursor body,
+  html.shop-entry-cursor body * { cursor: none !important; }
+}
+.shop-entry-arrow {
+  position: fixed;
+  z-index: 2147483647;
+  width: 48px;
+  height: 48px;
+  margin: -5px 0 0 -5px;
+  pointer-events: none;
+}

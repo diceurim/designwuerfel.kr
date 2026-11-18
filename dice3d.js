@@ -87,6 +87,9 @@ const FROST_MILK = { value: 0 }, FROST_RIM = { value: 0 }, FROST_SEE = { value: 
 const PIT_WARM = { value: 0 };
 // 제품 목록에서 불이 켜진 모습(마우스를 올려 굴린 뒤)의 정도: 검은 배경 위에서 패널이 금빛으로 빛나고, 속 전구가 비치는 자리는 하얗게 뜨겁습니다.
 const CATALOG_LIT = { value: 0 };
+// 휴대폰 큰 칸 상세 화면에서 불 켠 모습의 밝기 배율: 윗면 1·2는 1(지금 밝기), 3 → 6으로 갈수록 속 광원이 점점 밝아집니다.
+const LAMP_BOOST = { value: 1 };
+const LAMP_BOOST_TOP = 1.8;   // 윗면 6의 밝기(윗면 2의 몇 배인지)
 ACRYLIC.onBeforeCompile = shader => {
   shader.uniforms.uGlowLevel = GLOW_LEVEL;
   shader.uniforms.uOff = OFF_LOOK;
@@ -95,6 +98,7 @@ ACRYLIC.onBeforeCompile = shader => {
   shader.uniforms.uFrostSee = FROST_SEE;
   shader.uniforms.uPitWarm = PIT_WARM;
   shader.uniforms.uCatalogLit = CATALOG_LIT;
+  shader.uniforms.uLampBoost = LAMP_BOOST;
   shader.vertexShader = shader.vertexShader
     .replace('#include <common>', '#include <common>\nvarying vec3 vObjectNormal;\nvarying vec3 vObjectPosition;\nvarying vec2 vLampOffset;')
     .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nvObjectNormal = objectNormal;\nvObjectPosition = position;')
@@ -105,7 +109,7 @@ ACRYLIC.onBeforeCompile = shader => {
       varying vec3 vObjectNormal;
       varying vec3 vObjectPosition;
       varying vec2 vLampOffset;
-      uniform float uCatalogLit;
+      uniform float uCatalogLit, uLampBoost;
       uniform float uGlowLevel;
       uniform float uOff;
       uniform float uFrostMilk, uFrostRim, uFrostSee, uPitWarm;
@@ -179,7 +183,7 @@ ACRYLIC.onBeforeCompile = shader => {
       // 불 켠 모습의 채도를 낮춰 크림빛에 가깝게 합니다(0이면 원래 금빛, 1이면 완전한 크림빛).
       lamp = mix(lamp, dot(lamp, vec3(0.2126, 0.7152, 0.0722)) * catalogCream, 0.4);
       // 불 켠 모습 전체 밝기(1이면 원래 밝기).
-      lamp *= 1.4;
+      lamp *= 1.4 * uLampBoost;
       totalEmissiveRadiance = mix(totalEmissiveRadiance, lamp, uCatalogLit);`);
 };
 // 아이보리 면은 흰 툰 재질, 금속 테두리는 먹색으로 바꾸고, 가장 바깥 모양을 조금 키운 뒷면으로 흰 외곽선을 그립니다.
@@ -339,6 +343,8 @@ function updateCatalogLook() {
   if (scene.environment !== (studio ? STUDIO_ENV : ROOM_ENV)) scene.environment = studio ? STUDIO_ENV : ROOM_ENV;
   PIT_WARM.value = 0.55 * look;
   CATALOG_LIT.value = look * (1 - off);
+  // diceGlowLevel: 윗면 2 → 0.2, 6 → 1.0. 2 이하에서는 배율 1(지금 밝기 그대로)입니다.
+  LAMP_BOOST.value = catalogDetail ? 1 + (LAMP_BOOST_TOP - 1) * THREE.MathUtils.clamp((diceGlowLevel - 0.2) / 0.8, 0, 1) : 1;
   // 불이 켜지면 패널 겉면의 주변 반사와 뽀얀 광택을 낮춰, 우윳빛으로 뜨지 않고 금빛이 깊게 남게 합니다.
   ACRYLIC.envMapIntensity = THREE.MathUtils.lerp(0.45, 0.2, CATALOG_LIT.value);
   ACRYLIC.sheen = THREE.MathUtils.lerp(0.35, 0.24, CATALOG_LIT.value);
