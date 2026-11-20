@@ -562,8 +562,58 @@ function currentTopFace(q = dice.getWorldQuaternion(new THREE.Quaternion())) {
 
 // 화면에서 민 방향을 바닥의 네 방향 중 가장 가까운 쪽으로 바꿔 한 칸 넘깁니다.
 function tipScreen(sx, sy) {
+  // 구매 패널이 넓게 열린 동안(데스크톱): 바닥의 칸 방향 대신, 화면에서 정확히 수평·수직으로 보이는 바닥 방향으로 한 칸 넘깁니다.
+  if (wideMode()) {
+    const across = Math.abs(sx) > Math.abs(sy), s = Math.sign(across ? sx : sy);
+    const w = across ? SCREEN_RIGHT.clone().multiplyScalar(s) : SCREEN_BACK.clone().multiplyScalar(-s);
+    startTip([w.x, w.z], offWideCross(across ? [s, 0] : [0, s]));
+    return;
+  }
   const w = SCREEN_RIGHT.clone().multiplyScalar(sx).add(SCREEN_BACK.clone().multiplyScalar(-sy));
   startTip(Math.abs(w.x) > Math.abs(w.z) ? [Math.sign(w.x), 0] : [0, Math.sign(w.z)]);
+}
+// ── 구매 패널이 넓게 열린 상태(데스크톱) ──
+// 주사위는 시작 칸(좁은 공간 가운데)을 지나는 화면 수평선·수직선(+자) 위에서만 움직이고, 멈추면 늘 한 면이 정면(카메라)을 바라봅니다.
+// 직선을 벗어나는 쪽으로 굴리면 제자리에서 살짝 흔들리기만 합니다. 오른쪽으로 굴려 패널을 좁힐 때는 그대로 굴러가고, 그 뒤로는 다시 자유롭게 움직입니다.
+const wideMode = () => !!shopWideCell && !isPhone() && !shopCatalog;
+const ON_LINE = 0.05;
+const FRONT_ANGLE = Math.atan2(-SCREEN_RIGHT.z, SCREEN_RIGHT.x);   // 바닥의 x축을 화면 오른쪽 방향으로 돌리는 각도
+// 바닥 방향 → 화면 방향([오른쪽 ±1, 0] 또는 [0, 아래 ±1])
+function screenOf(dir) {
+  const right = dir[0] * SCREEN_RIGHT.x + dir[1] * SCREEN_RIGHT.z, back = dir[0] * SCREEN_BACK.x + dir[1] * SCREEN_BACK.z;
+  return Math.abs(right) > Math.abs(back) ? [Math.sign(right), 0] : [0, -Math.sign(back)];
+}
+// 시작 칸에서 화면 오른쪽으로 몇 칸(across), 화면 위쪽으로 몇 칸(up) 떨어져 있는지
+function crossOffset(cell) {
+  const dx = cell[0] - shopWideCell[0], dz = cell[1] - shopWideCell[1];
+  return { across: dx * SCREEN_RIGHT.x + dz * SCREEN_RIGHT.z, up: dx * SCREEN_BACK.x + dz * SCREEN_BACK.z };
+}
+const crossCell = (across, up) => [shopWideCell[0] + across * SCREEN_RIGHT.x + up * SCREEN_BACK.x, shopWideCell[1] + across * SCREEN_RIGHT.z + up * SCREEN_BACK.z];
+function offWideCross(screen) {
+  if (!wideMode() || screen[0] > 0) return false;
+  const { across, up } = crossOffset(shopCell);
+  return screen[0] ? Math.abs(up) > ON_LINE : Math.abs(across) > ON_LINE;
+}
+// 화면 밖으로 나갔다 반대쪽에서 들어올 때도 같은 직선 위로 들어오게 합니다(칸 간격에 맞춰 반올림).
+function crossMirror(cell, dir) {
+  if (!wideMode()) return mirrorCell(cell);
+  const { across, up } = crossOffset(cell);
+  if (screenOf(dir)[0]) return crossCell(Math.round(-across), up);   // 시작 칸이 좁은 공간의 가로 가운데에 있으므로 좌우만 뒤집습니다.
+  const p = cellScreen(cell), mirrored = crossOffset(cellAtScreen(p.x, roomBottom() + topBandHeight - p.y));
+  return crossCell(across, Math.round(mirrored.up));
+}
+// 한 면이 정면을 바라보게 하는 돌림 각도(지금 각도에서 가장 가까운 것)
+function frontYaw() {
+  const pose = root.getWorldQuaternion(new THREE.Quaternion()).multiply(faceQuaternion);
+  let best = shopYaw, bestGap = Infinity;
+  for (const dir of Object.values(GLB_FACE_DIRECTIONS)) {
+    const n = new THREE.Vector3(...dir).applyQuaternion(pose);
+    if (Math.abs(n.y) > 0.5) continue;
+    const off = FRONT_ANGLE - Math.atan2(-n.z, n.x) - shopYaw;
+    const yaw = shopYaw + Math.atan2(Math.sin(off), Math.cos(off));
+    if (Math.abs(yaw - shopYaw) < bestGap) { bestGap = Math.abs(yaw - shopYaw); best = yaw; }
+  }
+  return best;
 }
 
 // ── 화면 경계 판정: 모두 사용자가 보는 브라우저 화면의 2D 좌표(px)로 계산합니다 ──
@@ -674,8 +724,11 @@ function startTip(dir, bump = false, mode = null, remaining = 0) {
   // 넘어간 뒤 위로 올 숫자를 미리 구해, 넘어가는 동안 그 숫자의 멈춤 각도로 서서히 돌아가게 합니다.
   const axis = UP_AXIS.clone().cross(new THREE.Vector3(dir[0], 0, dir[1]));
   const landed = new THREE.Quaternion().setFromAxisAngle(axis, Math.PI / 2).multiply(from);
-  const yawTo = bump ? shopYaw : REST_YAWS[(currentTopFace(landed) - 1) % REST_YAWS.length];
-  tipState = { start: performance.now(), dir, bump, mode, remaining, yawFrom: shopYaw, yawTo, from };
+  const wide = wideMode();
+  const yawTo = bump ? shopYaw : wide ? frontYaw() : REST_YAWS[(currentTopFace(landed) - 1) % REST_YAWS.length];
+  // 넓게 열린 동안에는 정면을 본 자세 그대로 화면 방향으로 넘어가도록, 넘어가는 축을 돌림 각도만큼 되돌려 둡니다.
+  const spin = wide ? axis.clone().applyAxisAngle(UP_AXIS, -yawTo) : null;
+  tipState = { start: performance.now(), dir, bump, mode, remaining, yawFrom: shopYaw, yawTo, from, spin };
   if (!mode && !bump) applyManualTip(tipState);
 }
 
@@ -692,6 +745,7 @@ function keepInsideAfterResize() {
   if (size === lastShopSize) return;
   lastShopSize = size;
   if (shopCatalog || tipState || throwState || drag || cellFullyInside(shopCell)) return;
+  if (wideMode()) { shopCell = shopWideCell.slice(); return; }   // 넓게 열린 동안에는 +자 위를 지키도록 시작 칸으로 돌아갑니다.
   // 테두리 가장자리 범위까지 벗어난 자리를 먼저 찾고, 없으면 전체가 보이는 첫 자리로 옮깁니다.
   const center = cellAtScreen(roomRight() / 2, (roomBottom() + topBandHeight) / 2);
   let firstInside = null;
@@ -712,13 +766,14 @@ let shopPanelStage = 0;   // 0 닫힘, 1 열림, 2 넓게 열림
 let shopWideCell = null;  // 넓게 열린 동안 주사위 공간의 가운데에 올 칸
 const shopPhotos = [...document.querySelectorAll('.shop-panel-gallery img')];
 const shopGallery = document.querySelector('.shop-panel-gallery');
-// 위아래로 한 칸 굴릴 때 사진을 어디서 어디로 옮길지 정합니다(step: 아래 +1 다음 사진, 위 -1 이전 사진). 처음과 끝 사진에서는 더 넘어가지 않습니다.
+// 위아래로 한 칸 굴릴 때 사진을 어디서 어디로 옮길지 정합니다(step: 아래 +1 다음 사진, 위 -1 이전 사진).
+// 사진은 고리처럼 이어져, 첫 사진에서 위로 굴리면 마지막 사진으로, 마지막 사진에서 아래로 굴리면 첫 사진으로 갑니다.
 function photoScrollFor(step) {
   const pad = parseFloat(getComputedStyle(shopGallery).paddingTop);
   const stops = shopPhotos.map(photo => photo.offsetTop - pad);
   const from = shopGallery.scrollTop;
   const nearest = stops.reduce((best, stop, i) => Math.abs(stop - from) < Math.abs(stops[best] - from) ? i : best, 0);
-  return { from, to: stops[THREE.MathUtils.clamp(nearest + step, 0, stops.length - 1)] };
+  return { from, to: stops[(nearest + step + stops.length) % stops.length] };
 }
 function setShopPanel(stage) {
   if (stage === shopPanelStage) return;
@@ -742,10 +797,14 @@ function applyManualTip(tip) {
     else if (!shopWideCell && dz < 0) { shopWideCell = [shopCell[0], shopCell[1] + dz]; tip.opensWide = true; }
     return;
   }
-  if (shopWideCell && dx > 0) shopWideCell = null;
-  else if (!shopWideCell && dx < 0 && column < -1.25) { shopWideCell = [column, shopCell[1]]; tip.opensWide = true; }
-  // 넓게 열린 동안(데스크톱) 위아래로 굴리면 사진도 같은 타이밍으로 넘어갑니다.
-  if (shopWideCell && dz && innerWidth > 600) tip.photoScroll = photoScrollFor(dz);
+  // 넓게 열린 동안(데스크톱): 화면 오른쪽으로 굴리면 패널이 좁아지고, 화면 위아래로 굴리면 사진도 같은 타이밍으로 넘어갑니다.
+  if (shopWideCell) {
+    const [right, down] = screenOf(tip.dir);
+    if (right > 0) shopWideCell = null;
+    else if (down) tip.photoScroll = photoScrollFor(down);
+    return;
+  }
+  if (dx < 0 && column < -1.25) { shopWideCell = [column, shopCell[1]]; tip.opensWide = true; }
 }
 // Shop에 들어올 때(데스크톱): 구매 패널을 넓게 연 상태에서, 윗면 1인 주사위가 좁아진 공간의 가운데에서 시작합니다.
 // 패널이 열리는 동안 주사위는 화면 가운데에서 그 자리로 미끄러져 갑니다.
@@ -781,6 +840,7 @@ function startShop(restart = false, keepFace = false) {
   if (!restart) { shownGlow = 0; diceGlowLevel = 0; }
   shopCell = [SHOP_START_COLUMN, 0];
   shopWideCell = shopCell.slice();
+  if (!keepFace && root) shopYaw = frontYaw();   // 처음부터 정면을 바라본 자세로 시작합니다.
   shopGallery.scrollTo({ top: 0, behavior: restart ? 'smooth' : 'auto' });
   throwingHome = false;
   document.body.classList.add('shop-at-start');
@@ -1000,12 +1060,13 @@ function updateShop() {
     const progress = (1 - Math.cos(Math.PI * t)) / 2;
     if (tipState.photoScroll) shopGallery.scrollTop = tipState.photoScroll.from + (tipState.photoScroll.to - tipState.photoScroll.from) * progress;
     const yaw = tipState.yawFrom + (tipState.yawTo - tipState.yawFrom) * progress;
-    const turned = yawAround(yaw).multiply(new THREE.Quaternion().setFromAxisAngle(axis, eased)).multiply(tipState.from);
+    const spin = tipState.spin || axis;   // 자세를 돌리는 축(넓게 열린 동안에는 정면을 본 자세 기준)
+    const turned = yawAround(yaw).multiply(new THREE.Quaternion().setFromAxisAngle(spin, eased)).multiply(tipState.from);
     dice.quaternion.copy(rootQuaternion.clone().invert().multiply(turned));
     if (t === 1) {
       if (!tipState.bump) {
         if (tipState.mode !== 'inPlace') shopCell = [shopCell[0] + tipState.dir[0], shopCell[1] + tipState.dir[1]];
-        faceQuaternion = rootQuaternion.clone().invert().multiply(new THREE.Quaternion().setFromAxisAngle(axis, Math.PI / 2).multiply(tipState.from));
+        faceQuaternion = rootQuaternion.clone().invert().multiply(new THREE.Quaternion().setFromAxisAngle(spin, Math.PI / 2).multiply(tipState.from));
       }
       // 면이 바닥에 닿는 순간 '탁'
       playTipImpact(tipState.bump ? 0.5 : 1);
@@ -1023,8 +1084,10 @@ function updateShop() {
           if (finished.remaining > 1) startTip(finished.dir, false, 'entering', finished.remaining - 1);
           else finishEntering();
         } else if (finished.mode === 'leaving') {
-          if (cellOffscreen(shopCell) && cellOffscreen(mirrorCell(shopCell))) {
-            shopCell = mirrorCell(shopCell);
+          if (cellOffscreen(shopCell) && cellOffscreen(crossMirror(shopCell, finished.dir))) {
+            shopCell = crossMirror(shopCell, finished.dir);
+            // 구매 패널이 넓게 열린 동안(데스크톱) 주사위가 화면 밖으로 나갔다 다시 들어오면 상세 사진도 첫 사진으로 돌아갑니다.
+            if (wideMode()) shopGallery.scrollTo({ top: 0, behavior: 'smooth' });
             startTip(finished.dir, false, 'entering', entrySteps(shopCell, finished.dir));
           } else {
             startTip(finished.dir, false, 'leaving');
@@ -1038,7 +1101,8 @@ function updateShop() {
     shopYaw = throwYaw;
   } else {
     // 멈춰 있을 때: 윗면 숫자에 맞는 각도로 살짝 돌아 앉습니다.
-    const targetYaw = REST_YAWS[(currentTopFace() - 1) % REST_YAWS.length];
+    // 구매 패널이 넓게 열린 동안(데스크톱)에는 숫자와 상관없이 한 면이 정면을 바라봅니다.
+    const targetYaw = wideMode() ? frontYaw() : REST_YAWS[(currentTopFace() - 1) % REST_YAWS.length];
     shopYaw += (targetYaw - shopYaw) * (1 - Math.exp(-dt / SETTLE_TIME));
     dice.quaternion.copy(rootQuaternion.clone().invert().multiply(yawAround(shopYaw)).multiply(rootQuaternion).multiply(faceQuaternion));
   }

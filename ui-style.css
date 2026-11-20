@@ -317,6 +317,18 @@ body.shop-at-start .shop-hint.shop-start-hint { opacity: 1; }
  }
  body.shop-panel-light .shop-panel-buy { border-color: #121212; }
  body.shop-panel-light .shop-panel-buy:focus-visible, body.shop-panel-light .shop-panel-gallery:focus-visible { outline-color: #000; }
+ /* 구매 패널(사진 칸 + 정보 칸): 유리 대신 흰색(#fff) 배경, 글자와 카트 버튼은 #121212. 윗면 숫자와 상관없이 늘 같습니다. */
+ .shop-panel, body.shop-panel-light .shop-panel {
+  background: #fff; color: #121212; -webkit-backdrop-filter: none; backdrop-filter: none;
+  border-left: 1px solid #e3e3e3; box-shadow: none;
+ }
+ .shop-panel-buy, body.shop-panel-light .shop-panel-buy { border-color: #121212; color: #121212; }
+ .shop-panel-buy:focus-visible, .shop-panel-gallery:focus-visible { outline-color: #121212; }
+ /* 제품 상세 화면의 위쪽 띠: 흰색(#fff) 띠에 #121212 로고, Memo 버튼은 밝은 띠용 모양(윗면 숫자와 상관없이 늘 같음). 제품 목록은 흰 띠 그대로. */
+ body.is-shop .top-band { background: #fff; }
+ body.is-shop .logo-brand { filter: invert(.0706); }   /* 로고 그림은 #000이라 7.06%만 뒤집어 #121212로 맞춥니다. */
+ body.is-shop .mode-memo { background: #f2f2f2; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+ body.is-shop .mode-memo:hover { background: #e8e8e8; }
 }
 /* 휴대폰: 주사위를 위로 굴리면 구매 패널이 아래에서 올라옵니다(흰색 12% 유리). 제품 정보가 먼저, 그 아래에 사진이 이어지고 패널 안에서 위아래로 스크롤합니다. */
 @media (max-width: 600px) {
