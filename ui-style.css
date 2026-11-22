@@ -364,7 +364,7 @@ body.shop-at-start .shop-hint.shop-start-hint { opacity: 1; }
  }
  .cart-popover[hidden] { display: none; }
  .cart-card { box-sizing: border-box; padding: 40px 28px 28px; border-radius: 24px; background: #ffffff59; -webkit-backdrop-filter: blur(4px) saturate(1.3); backdrop-filter: blur(4px) saturate(1.3); border: 1px solid #ffffffcc; box-shadow: 0 12px 40px #00000014, inset 0 1px 0 #ffffff; display: flex; flex-direction: column; align-items: center; gap: 24px; }
- .cart-close { position: absolute; top: 10px; right: 12px; width: 36px; height: 36px; padding: 0; border: 0; background: none; color: #121212; font: 300 30px/36px sans-serif; cursor: pointer; }
+ .cart-close { position: absolute; z-index: 1;   /* 블러 카드보다 위에 놓여 흐려지지 않고 눌립니다 */ top: 10px; right: 12px; width: 36px; height: 36px; padding: 0; border: 0; background: none; color: #121212; font: 300 30px/36px sans-serif; cursor: pointer; }
  .cart-empty { margin: 8px 0; font-size: 14px; color: #8a8a8a; }
  .cart-item { align-self: stretch; display: grid; grid-template-columns: 76px 1fr auto; align-items: center; gap: 20px; }
  .cart-item[hidden], .cart-checkout[hidden], .cart-note[hidden], .cart-empty[hidden] { display: none; }
