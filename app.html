@@ -120,12 +120,13 @@
 <link rel="stylesheet" href="lolling.css?v=5">
 <link rel="stylesheet" href="experiment.css?v=14">
 <script src="experiment.js?v=5"></script>
-<link rel="stylesheet" href="ui-style.css?v=panel-white3">
+<link rel="stylesheet" href="ui-style.css?v=note5">
 <!-- 3D 주사위: Blender에서 만든 GLB 모델과 굴림 애니메이션을 three.js로 그립니다. -->
 <script type="importmap">{ "imports": { "three": "./lib/three/three.module.min.js", "three/addons/": "./lib/three/addons/" } }</script>
-<script type="module" src="dice3d.js?v=112-photo-loop"></script>
+<script type="module" src="dice3d.js?v=113-detail-face1"></script>
 <link rel="stylesheet" href="cursor.css?v=arrow-restored-1">
 <script defer src="shop-entry-cursor.js?v=arrow-restored-1"></script>
+<script defer src="cart.js?v=3"></script>
 </head>
 <body>
   <!-- 화면 이름표: 열린 화면에 따라 왼쪽 위 구석에 표시됩니다(시작 화면에서는 숨김). -->
@@ -147,8 +148,8 @@
     <p class="de" lang="de"><span class="hint-wide">Greif den Würfel und schieb ihn an, um ihn zu rollen.<br>Zieh ihn kräftig nach oben und lass ihn los, um ihn zu werfen.</span><span class="hint-phone">Greif den Würfel und roll ihn nach oben.</span></p>
   </section>
   <section class="shop-hint shop-start-hint" aria-label="Shop 시작 안내">
-    <p class="ko" lang="ko">주사위를 오른쪽으로 밀어보세요.</p>
-    <p class="de" lang="de">Schieb den Würfel nach rechts.</p>
+    <p class="ko" lang="ko">주사위를 위아래로 굴려보세요.</p>
+    <p class="de" lang="de">Roll den Würfel nach oben und unten.</p>
   </section>
   <!-- Shop 제품 목록(데스크톱): Shop에 들어오면 먼저 보입니다. 람페 칸의 사진 영역은 뚫려 있어 뒤의 3D 주사위가 보이고, 누르면 제품 상세 화면으로 넘어갑니다. -->
   <section id="shopCatalog" class="catalog" aria-label="Shop 제품 목록">
@@ -163,11 +164,16 @@
           <span class="catalog-price"><span>₩320,000</span><span lang="de">210 €</span></span>
         </span>
       </a>
-      <div class="catalog-item is-soon">
-        <span class="catalog-image" aria-hidden="true"></span>
+      <!-- Coming Soon 칸: [테스트] 사진은 영감일기장 이미지를 흐리게(레이어 블러) 넣어 둡니다. -->
+      <div class="catalog-item is-soon is-blurred">
+        <span class="catalog-image" aria-hidden="true"><img src="assets/Inspiration%20Archiving%20Note.png" alt="" decoding="async"></span>
         <span class="catalog-caption">
           <span class="catalog-name"><span lang="en">Coming Soon</span></span>
           <span class="catalog-price"></span>
+          <!-- [테스트] 영감일기장 이름·가격(잠시 꺼 둠)
+          <span class="catalog-name"><span lang="en">Inspiration Archiving Note</span><span class="ko" lang="ko">영감일기장</span></span>
+          <span class="catalog-price"><span>₩24,000</span><span lang="de">16 €</span></span>
+          -->
         </span>
       </div>
       <div class="catalog-fill"></div>
@@ -182,6 +188,31 @@
   <!-- Shop 구매 패널: 주사위가 처음 자리보다 왼쪽 칸으로 가면 열리고, 한 칸 더 왼쪽으로 가면 사진이 보이도록 넓어집니다(문구는 임시). -->
   <div class="top-band">
     <button id="homeLogo" class="top-band-home" type="button" aria-label="WÜRFEL 현재 화면의 처음으로 돌아가기"><img class="logo-graphic" src="assets/Graphic%20Logo_variable_re.png" alt=""><img class="logo-brand" src="assets/Brand_Logo.png" alt=""></button>
+    <!-- 장바구니(데스크톱 Shop 화면): 아이콘의 빨간 숫자는 담은 개수입니다. -->
+    <button id="cartButton" class="cart-button" type="button" aria-label="장바구니" aria-expanded="false" aria-controls="cartPopover">
+      <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3.5h2.6l2.3 11.2h11.2l2-8H6.2"/><circle cx="9" cy="19.2" r="1.3"/><circle cx="17.2" cy="19.2" r="1.3"/></svg>
+      <span class="cart-count" hidden>0</span>
+    </button>
+  </div>
+  <div id="cartPopover" class="cart-popover" role="dialog" aria-label="장바구니" hidden>
+    <button class="cart-close" type="button" aria-label="장바구니 닫기">×</button>
+    <div class="cart-card">
+      <p class="cart-empty">장바구니가 비어 있어요.</p>
+      <div class="cart-item" hidden>
+        <img class="cart-thumb" src="assets/cart-dice.png" alt="">
+        <div class="cart-item-main">
+          <p class="cart-name"><span lang="de">Lampe</span> <span lang="ko">람페</span></p>
+          <div class="cart-qty" role="group" aria-label="수량">
+            <button class="cart-minus" type="button" aria-label="하나 빼기">−</button>
+            <span class="cart-qty-value" aria-live="polite">1</span>
+            <button class="cart-plus" type="button" aria-label="하나 더하기">+</button>
+          </div>
+        </div>
+        <p class="cart-price"><span class="cart-price-krw">₩320,000</span><span class="cart-price-eur" lang="de">210 €</span></p>
+      </div>
+      <button class="cart-checkout" type="button" hidden>CHECKOUT</button>
+      <p class="cart-note" hidden>결제는 준비 중이에요.</p>
+    </div>
   </div>
   <aside id="shopPanel" class="shop-panel" aria-label="Lampe 구매" aria-hidden="true" inert>
     <div class="shop-panel-ruler" aria-hidden="true"></div>
@@ -214,7 +245,15 @@
       <li>Hergestellt in Südkorea</li>
     </ul>
     </div>
-    <!-- 구매하기 버튼은 휴대폰에서만 보입니다(데스크톱은 카트 버튼만, 지금처럼 아래에 붙어 있습니다). -->
+    <!-- 수량(데스크톱): 제품 설명과 카트에 추가 사이 빈 공간의 세로 가운데 -->
+    <div class="shop-panel-qty-row">
+      <div class="cart-qty shop-panel-qty" role="group" aria-label="수량">
+        <button class="shop-panel-qty-minus" type="button" aria-label="하나 빼기">−</button>
+        <span class="cart-qty-value shop-panel-qty-value" aria-live="polite">1</span>
+        <button class="shop-panel-qty-plus" type="button" aria-label="하나 더하기">+</button>
+      </div>
+    </div>
+    <!-- 구매하기·카트에 추가: 휴대폰은 가로로 나란히, 데스크톱은 정보 칸 아래에 위아래로 놓입니다. -->
     <div class="shop-panel-actions">
       <button class="shop-panel-buy shop-panel-buy-now" type="button">구매하기</button>
       <button class="shop-panel-buy" type="button">카트에 추가</button>

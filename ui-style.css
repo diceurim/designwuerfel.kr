@@ -255,6 +255,7 @@ body.shop-panel-wide .shop-hint { opacity: 0; }
 body.shop-at-start .shop-hint.shop-start-hint { opacity: 1; }
 /* 시작 화면과 Shop 화면 맨 위의 띠: 전환 버튼과 가운데 로고(누르면 시작 화면으로) */
 .top-band { display: none; }
+.cart-button, .cart-popover, .shop-panel-qty-row { display: none; }   /* 장바구니는 데스크톱 Shop 화면에서만(아래 데스크톱 규칙) */
 .mode-studio { display: none; }
 .shop-panel-de { display: none; }
 /* 띠·로고·전환 버튼: 데스크톱과 휴대폰 공통 (크기는 아래 휴대폰 규칙에서 줄입니다) */
@@ -329,6 +330,55 @@ body.shop-at-start .shop-hint.shop-start-hint { opacity: 1; }
  body.is-shop .logo-brand { filter: invert(.0706); }   /* 로고 그림은 #000이라 7.06%만 뒤집어 #121212로 맞춥니다. */
  body.is-shop .mode-memo { background: #f2f2f2; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
  body.is-shop .mode-memo:hover { background: #e8e8e8; }
+ /* 구매하기·카트에 추가: 휴대폰처럼 두 버튼을 함께 두고, 정보 칸 아래에 위아래로 붙입니다(창 높이가 낮아도 보이게). */
+ .shop-panel-actions { position: sticky; bottom: 0; margin-top: auto; width: 100%; padding: 12px 0 21px; background: #fff; display: flex; flex-direction: column; align-items: center; gap: 12px; }   /* 흰 바탕: 창 높이가 낮을 때 설명 글자가 버튼 뒤로 지나갑니다. */
+ .shop-panel-actions .shop-panel-buy { position: static; margin-top: 0; }
+ /* 두 버튼의 왼쪽 끝을 제품 설명 글과 맞춥니다: 가로를 설명 글 폭까지 양쪽에서 같은 비율로 줄이고, 세로·둥근 모서리도 같은 비율로 줄입니다(비율은 cart.js가 --shop-buy-scale로 넣음). */
+ .shop-panel-actions .shop-panel-buy { width: calc(232px * var(--shop-buy-scale, 1)); height: calc(56px * var(--shop-buy-scale, 1)); border-radius: calc(28px * var(--shop-buy-scale, 1)); }
+ .shop-panel-buy-now { display: block; }
+ /* 카트에 추가가 위, 구매하기가 아래. 카트에 추가는 #121212 버튼에 흰 글자입니다. */
+ .shop-panel-actions .shop-panel-buy-now { order: 2; }
+ .shop-panel-actions .shop-panel-buy:not(.shop-panel-buy-now) { order: 1; background: #121212; color: #fff; }
+ .shop-panel-actions .shop-panel-buy:not(.shop-panel-buy-now):focus-visible { outline-color: #121212; }
+ /* 수량 칸: 제품 설명과 카트에 추가 사이 빈 공간의 세로 가운데(위아래 여백을 똑같이 나눔). 고른 개수만큼 장바구니에 담깁니다. */
+ .shop-panel-qty-row { display: block; flex: none; margin: auto 0; padding-bottom: 4px; }   /* 위 여백 = 설명 아래 16px + 남는 공간 절반, 아래 여백 = 4px + 남는 공간 절반 + 버튼 칸 위 12px */
+ .shop-panel-qty-row .shop-panel-qty { display: inline-flex; vertical-align: top; }
+ .shop-panel-qty-row ~ .shop-panel-actions { margin-top: 0; }
+ /* 장바구니: 위쪽 띠 오른쪽 아이콘(빨간 숫자 = 담은 개수)과, 그 아래로 열리는 장바구니 카드. Shop 화면에서만 보입니다. */
+ body.is-shop .cart-button { display: flex; }
+ .cart-button {
+  display: none; position: absolute; right: max(2%, 24px); top: 50%; transform: translateY(-50%); width: 44px; height: 44px;
+  align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 50%; background: none; color: #121212; cursor: pointer;
+ }
+ .cart-button:focus-visible { outline: 2px solid #121212; outline-offset: 2px; }
+ .cart-count {
+  position: absolute; top: 2px; right: 0; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px;
+  background: #ff2d2d; color: #fff; font: 500 11px/18px 'Wuerfel Latin', -apple-system, sans-serif; text-align: center;
+ }
+ .cart-count[hidden] { display: none; }
+ .cart-button.cart-bump svg { animation: cart-bump .35s ease-out; }
+ @keyframes cart-bump { 40% { transform: scale(1.18) rotate(-6deg); } }
+ .cart-popover { display: block;
+  position: fixed; z-index: 20; top: calc(var(--top-band) - 8px); right: max(2%, 16px); width: min(440px, calc(100vw - 32px));
+  font-family: 'Wuerfel Latin', 'Gothic A1', "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; font-weight: 300; color: #121212;
+ }
+ .cart-popover[hidden] { display: none; }
+ .cart-card { box-sizing: border-box; padding: 40px 28px 28px; border-radius: 24px; background: #ffffff59; -webkit-backdrop-filter: blur(4px) saturate(1.3); backdrop-filter: blur(4px) saturate(1.3); border: 1px solid #ffffffcc; box-shadow: 0 12px 40px #00000014, inset 0 1px 0 #ffffff; display: flex; flex-direction: column; align-items: center; gap: 24px; }
+ .cart-close { position: absolute; top: 10px; right: 12px; width: 36px; height: 36px; padding: 0; border: 0; background: none; color: #121212; font: 300 30px/36px sans-serif; cursor: pointer; }
+ .cart-empty { margin: 8px 0; font-size: 14px; color: #8a8a8a; }
+ .cart-item { align-self: stretch; display: grid; grid-template-columns: 76px 1fr auto; align-items: center; gap: 20px; }
+ .cart-item[hidden], .cart-checkout[hidden], .cart-note[hidden], .cart-empty[hidden] { display: none; }
+ .cart-thumb { width: 76px; height: 76px; object-fit: contain; }   /* 제품 목록의 불 꺼진 주사위 렌더(배경 없음) */
+ .cart-name { margin: 0 0 10px; font-size: 16px; }
+ .cart-qty { display: inline-flex; align-items: center; height: 27px; border: 1px solid #121212; border-radius: 3px; }   /* 처음 크기의 80% */
+ .cart-qty button { width: 26px; height: 100%; padding: 0; border: 0; background: none; color: #121212; font: 300 14px/1 sans-serif; cursor: pointer; }
+ .cart-qty-value { min-width: 32px; height: 100%; border-left: 1px solid #121212; border-right: 1px solid #121212; font-size: 12px; line-height: 27px; text-align: center; }
+ .cart-price { margin: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 16px; }
+ .cart-price-eur { font-size: 14px; color: #6a6a6a; }
+ .cart-checkout { align-self: center; margin: 0 auto; width: 138px; height: 38px; border: 0; border-radius: 19px; background: #121212; color: #fff; font: 400 12px/38px 'Wuerfel Latin', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif; letter-spacing: .01em;   /* Memo/Shop 버튼과 같은 글꼴 */ cursor: pointer; transition: transform .15s; }
+ .cart-checkout:active { transform: scale(.97); }
+ .cart-checkout:focus-visible, .cart-qty button:focus-visible, .cart-close:focus-visible { outline: 2px solid #121212; outline-offset: 2px; }
+ .cart-note { margin: -8px 0 0; font-size: 13px; color: #6a6a6a; }
 }
 /* 휴대폰: 주사위를 위로 굴리면 구매 패널이 아래에서 올라옵니다(흰색 12% 유리). 제품 정보가 먼저, 그 아래에 사진이 이어지고 패널 안에서 위아래로 스크롤합니다. */
 @media (max-width: 600px) {
@@ -389,6 +439,13 @@ body.shop-at-start .shop-hint.shop-start-hint { opacity: 1; }
  .catalog-price { text-align: right; }
  .catalog-name [lang="de"] { font-weight: 400; }
  .is-soon .catalog-caption { color: #9a9a9a; }
+ /* [테스트] Coming Soon 칸 사진(영감일기장): 칸 가운데에 75% 크기로 두고, 품절 제품처럼 흐리게(레이어 블러) 보여 줍니다. */
+ .is-blurred .catalog-image { position: relative; overflow: hidden; }
+ .is-blurred .catalog-image { display: flex; align-items: center; justify-content: center; }
+ .is-blurred .catalog-image img { display: block; width: 75%; height: 75%; object-fit: contain; filter: blur(5px); }   /* 칸의 75% 크기 */
+ /* [테스트] 영감일기장 영문 이름 굵기(이름을 다시 켤 때 함께 켭니다)
+ .catalog-name [lang="en"] { font-weight: 400; }
+ */
  .catalog-fill { flex: 1; background: #fff; }
  .catalog-rest { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; background: #fff; }
  /* 목록 아래쪽 인용문: 화면 오른쪽에서 20px 안쪽에서 문장이 끝나고, 크기는 유로 가격과 같습니다. */

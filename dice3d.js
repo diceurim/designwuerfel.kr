@@ -827,7 +827,7 @@ function throwShopDice() {
   document.body.classList.remove('shop-at-start');
 }
 // restart: Shop 안에서 로고를 눌러 돌아올 때. 주사위는 지금 화면 자리에서 시작 자리로 미끄러져 가고, 배경 밝기와 사진도 부드럽게 돌아갑니다.
-// keepFace: 제품 목록에서 넘어올 때. 목록에서 굴러간 윗면을 그대로 이어 갑니다.
+// keepFace: 지금 윗면을 그대로 이어 갈 때(제품 목록에서 넘어올 때는 쓰지 않고 윗면 1로 시작합니다).
 function startShop(restart = false, keepFace = false) {
   if (innerWidth <= 600) return;
   const fromX = restart && diceScreenCenter ? diceScreenCenter[0] : innerWidth / 2;
@@ -898,15 +898,9 @@ function openCatalog() {
 function openDetail() {
   if (!shopCatalog) return;
   catalogHover = false; catalogLeaveAt = 0;
-  if (tipState?.mode === 'inPlace') {   // 굴러가는 중이면 그 윗면으로 바로 내려놓습니다.
-    const rootQuaternion = root.getWorldQuaternion(new THREE.Quaternion());
-    const axis = UP_AXIS.clone().cross(new THREE.Vector3(tipState.dir[0], 0, tipState.dir[1]));
-    faceQuaternion = rootQuaternion.clone().invert().multiply(new THREE.Quaternion().setFromAxisAngle(axis, Math.PI / 2).multiply(tipState.from));
-    shopYaw = tipState.yawTo;
-    tipState = null;
-  }
+  if (tipState?.mode === 'inPlace') tipState = null;   // 목록에서 굴러가던 중이어도 멈춥니다.
   setShopCatalog(false);
-  startShop(true, true);
+  startShop(true);   // 상세 화면은 늘 윗면 1, 정면을 바라본 자세로 시작합니다.
 }
 catalogLampe.addEventListener('pointerenter', () => { if (!isPhone()) catalogHover = true; });
 catalogLampe.addEventListener('pointerleave', () => { if (!isPhone()) catalogHover = false; });
