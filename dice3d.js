@@ -858,6 +858,24 @@ document.getElementById('homeLogo').addEventListener('click', () => {
   openCatalog();
 });
 
+// 제품 상세 화면(웹: 구매 패널 화면, 휴대폰: 큰 칸 상세 화면): 왼쪽 위 Memo 버튼이 'Shop' 버튼이 되어, 누르면 먼저 제품 목록으로 돌아갑니다(목록에서는 다시 Memo).
+const modeMemo = document.getElementById('memoButton');
+const detailBackMode = () => shopMode && (!shopCatalog || catalogDetail);
+function syncMemoLabel() {
+  const c = document.body.classList, back = c.contains('is-shop') && (!c.contains('shop-catalog') || c.contains('catalog-detail'));
+  modeMemo.textContent = back ? 'Shop' : 'Memo';
+  modeMemo.setAttribute('aria-label', back ? '제품 목록으로 돌아가기' : 'Memo 화면으로');
+}
+new MutationObserver(syncMemoLabel).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+document.addEventListener('click', event => {
+  if (!modeMemo.contains(event.target) || !detailBackMode() || !wasShop) return;
+  event.stopPropagation();   // Memo 화면으로 가는 원래 동작(sketch.js) 대신 목록으로 돌아갑니다.
+  tipState = null; drag = null; heldLift = 0;
+  document.body.style.cursor = '';
+  openCatalog();
+}, true);
+syncMemoLabel();
+
 // ───────── Shop 제품 목록 ─────────
 // 휴대폰에는 마우스 올리기가 없으므로, 람페 칸을 누르면 주사위가 제자리에서 한 번 구른 뒤 상세 화면으로 넘어갑니다.
 // 람페 칸의 사진 영역은 뚫려 있어, 그 뒤로 Shop의 주사위와 바닥이 칸 크기로 줄어 보입니다.
