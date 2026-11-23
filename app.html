@@ -120,13 +120,13 @@
 <link rel="stylesheet" href="lolling.css?v=5">
 <link rel="stylesheet" href="experiment.css?v=14">
 <script src="experiment.js?v=5"></script>
-<link rel="stylesheet" href="ui-style.css?v=note5">
+<link rel="stylesheet" href="ui-style.css?v=cartm1">
 <!-- 3D 주사위: Blender에서 만든 GLB 모델과 굴림 애니메이션을 three.js로 그립니다. -->
 <script type="importmap">{ "imports": { "three": "./lib/three/three.module.min.js", "three/addons/": "./lib/three/addons/" } }</script>
 <script type="module" src="dice3d.js?v=113-detail-face1"></script>
 <link rel="stylesheet" href="cursor.css?v=arrow-restored-1">
 <script defer src="shop-entry-cursor.js?v=arrow-restored-1"></script>
-<script defer src="cart.js?v=3"></script>
+<script defer src="cart.js?v=4"></script>
 </head>
 <body>
   <!-- 화면 이름표: 열린 화면에 따라 왼쪽 위 구석에 표시됩니다(시작 화면에서는 숨김). -->
@@ -188,7 +188,7 @@
   <!-- Shop 구매 패널: 주사위가 처음 자리보다 왼쪽 칸으로 가면 열리고, 한 칸 더 왼쪽으로 가면 사진이 보이도록 넓어집니다(문구는 임시). -->
   <div class="top-band">
     <button id="homeLogo" class="top-band-home" type="button" aria-label="WÜRFEL 현재 화면의 처음으로 돌아가기"><img class="logo-graphic" src="assets/Graphic%20Logo_variable_re.png" alt=""><img class="logo-brand" src="assets/Brand_Logo.png" alt=""></button>
-    <!-- 장바구니(데스크톱 Shop 화면): 아이콘의 빨간 숫자는 담은 개수입니다. -->
+    <!-- 장바구니(Shop 화면, 데스크톱·휴대폰): 아이콘의 빨간 숫자는 담은 개수입니다. -->
     <button id="cartButton" class="cart-button" type="button" aria-label="장바구니" aria-expanded="false" aria-controls="cartPopover">
       <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3.5h2.6l2.3 11.2h11.2l2-8H6.2"/><circle cx="9" cy="19.2" r="1.3"/><circle cx="17.2" cy="19.2" r="1.3"/></svg>
       <span class="cart-count" hidden>0</span>

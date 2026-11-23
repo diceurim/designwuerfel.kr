@@ -1,5 +1,5 @@
-// 장바구니(데스크톱 Shop 화면)
-// - 구매 패널의 '카트에 추가'를 누르면 Lampe가 하나 담기고, 위쪽 띠의 장바구니 아이콘 아래로 장바구니 카드가 열립니다.
+// 장바구니(Shop 화면, 데스크톱·휴대폰)
+// - 구매 패널(휴대폰은 상세 화면)의 '카트에 추가'를 누르면 Lampe가 하나 담기고, 위쪽 띠의 장바구니 아이콘 아래로 장바구니 카드가 열립니다.
 // - 아이콘을 누르면 카드를 열고 닫습니다. ×, Esc, 카드 바깥을 눌러도 닫힙니다.
 // - 수량은 −/+로 바꾸고, 0이 되면 장바구니에서 빠집니다. 담은 개수는 이 브라우저에만 기억합니다.
 (() => {
@@ -43,14 +43,18 @@
   const showPick = () => { if (pickValue) pickValue.textContent = pick; };
   document.querySelector('#shopPanel .shop-panel-qty-minus')?.addEventListener('click', () => { pick = Math.max(1, pick - 1); showPick(); });
   document.querySelector('#shopPanel .shop-panel-qty-plus')?.addEventListener('click', () => { pick += 1; showPick(); });
-  // 구매 패널(데스크톱)의 '카트에 추가'
-  document.querySelectorAll('#shopPanel .shop-panel-buy:not(.shop-panel-buy-now)').forEach(add => add.addEventListener('click', () => {
-    setQty(qty + pick);
-    pick = 1; showPick();
+  // '카트에 추가': 데스크톱 구매 패널과, 휴대폰 상세 화면에 복제된 버튼 모두 받습니다(복제본에는 이벤트가 따라가지 않아 문서에서 받음).
+  // 데스크톱은 수량 칸에서 고른 개수만큼, 휴대폰은 하나씩 담고 장바구니 카드에서 수량을 바꿉니다.
+  document.addEventListener('click', event => {
+    const add = event.target.closest('.shop-panel-buy:not(.shop-panel-buy-now)');
+    if (!add) return;
+    const fromPanel = !!add.closest('#shopPanel');
+    setQty(qty + (fromPanel ? pick : 1));
+    if (fromPanel) { pick = 1; showPick(); }
     open();
     // 숫자가 바뀐 것이 보이도록 아이콘을 살짝 튕깁니다.
     button.classList.remove('cart-bump'); void button.offsetWidth; button.classList.add('cart-bump');
-  }));
+  });
   document.addEventListener('pointerdown', event => {
     if (!popover.hidden && !popover.contains(event.target) && !button.contains(event.target) && !event.target.closest('.shop-panel-buy, .shop-panel-qty')) close();
   });
