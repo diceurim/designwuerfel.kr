@@ -927,8 +927,8 @@ catalogLampe.addEventListener('blur', () => { if (!catalogLeaveAt) catalogHover 
 catalogLampe.addEventListener('click', event => {
   event.preventDefault();
   if (!isPhone()) { openDetail(); return; }
-  // [테스트] 휴대폰: 람페를 누르면 바로 큰 칸 상세 화면이 됩니다(주사위는 윗면 1, 불 꺼진 모습 그대로).
-  if (!catalogDetail) { setCatalogDetail(true); catalogHover = false; catalogLeaveAt = 0; catalogSnap = 3; detailScroller.scrollTop = 0; }
+  // [테스트] 휴대폰: 람페를 누르면 바로 큰 칸 상세 화면이 되고, 주사위가 제자리에서 굴러 윗면 2가 됩니다(상세 화면의 탭처럼).
+  if (!catalogDetail) { setCatalogDetail(true); catalogHover = false; catalogLeaveAt = 0; catalogSnap = 3; detailScroller.scrollTop = 0; if (window.glbDiceReady && !throwState) rollToFace(2, [1, 0]); }
 });
 // [테스트] 휴대폰 큰 칸 상세 화면의 손짓:
 // - 사진 영역을 누르면 주사위가 제자리에서 다음 면으로 한 번씩 굴러갑니다(목록에서 마우스를 올렸을 때처럼).
