@@ -307,7 +307,7 @@ body.shop-at-start .shop-hint.shop-start-hint { opacity: 1; }
  .shop-panel-specs { margin-bottom: 16px; }
  .shop-panel-specs-de { margin-top: 16px; }   /* 한국어 문단과 독일어 문단 사이 간격 */
  .shop-panel-price .shop-panel-de { margin-top: 4px; font-size: 16px; line-height: 1.2; }
- .shop-panel-buy { position: sticky; bottom: 16px; border: 1px solid #fafafa; background: transparent; color: inherit; text-decoration: underline; text-underline-offset: 4px; }   /* 창 높이가 낮아도 카트 버튼이 보이게 합니다. */
+ .shop-panel-buy { position: sticky; bottom: 16px; border: 1px solid #fafafa; background: transparent; color: inherit; text-decoration: underline; text-underline-offset: 4px; --shop-buy-stroke: 0.4px; -webkit-text-stroke: var(--shop-buy-stroke) currentColor; text-decoration-thickness: calc(1px + var(--shop-buy-stroke)); }   /* 창 높이가 낮아도 카트 버튼이 보이게 합니다. --shop-buy-stroke 값 하나로 글자 외곽선 두께와 밑줄 두께가 함께 바뀝니다(0이면 원래 두께). */
  .shop-panel-name [lang="de"], .shop-panel-name .ko, .shop-panel-price, .shop-panel-specs, .shop-panel-buy { font-weight: 300; }   /* 구매 패널 글자 굵기: Light */
  /* 사진 카드 크기를 맞춰, 위아래로 굴릴 때마다 같은 자리에 한 장씩 놓입니다. */
  .shop-panel-gallery img { width: min(100%, calc((100vh - var(--top-band) - 2 * var(--gallery-pad)) * .8)); aspect-ratio: 4 / 5; object-fit: contain; }
@@ -331,7 +331,7 @@ body.shop-at-start .shop-hint.shop-start-hint { opacity: 1; }
  body.is-shop .mode-memo { background: #f2f2f2; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
  body.is-shop .mode-memo:hover { background: #e8e8e8; }
  /* 구매하기·카트에 추가: 휴대폰처럼 두 버튼을 함께 두고, 정보 칸 아래에 위아래로 붙입니다(창 높이가 낮아도 보이게). */
- .shop-panel-actions { position: sticky; bottom: 0; margin-top: auto; width: 100%; padding: 12px 0 21px; background: #fff; display: flex; flex-direction: column; align-items: center; gap: 12px; }   /* 흰 바탕: 창 높이가 낮을 때 설명 글자가 버튼 뒤로 지나갑니다. */
+ .shop-panel-actions { position: sticky; bottom: 0; margin-top: auto; width: 100%; padding: 12px 32px; background: #fff; display: flex; flex-direction: column; align-items: center; gap: 12px; }   /* 흰 바탕: 창 높이가 낮을 때 설명 글자가 버튼 뒤로 지나갑니다. */
  .shop-panel-actions .shop-panel-buy { position: static; margin-top: 0; }
  /* 두 버튼의 왼쪽 끝을 제품 설명 글과 맞춥니다: 가로를 설명 글 폭까지 양쪽에서 같은 비율로 줄이고, 세로·둥근 모서리도 같은 비율로 줄입니다(비율은 cart.js가 --shop-buy-scale로 넣음). */
  .shop-panel-actions .shop-panel-buy { width: calc(232px * var(--shop-buy-scale, 1)); height: calc(56px * var(--shop-buy-scale, 1)); border-radius: calc(28px * var(--shop-buy-scale, 1)); }
@@ -340,6 +340,8 @@ body.shop-at-start .shop-hint.shop-start-hint { opacity: 1; }
  .shop-panel-actions .shop-panel-buy-now { order: 2; }
  .shop-panel-actions .shop-panel-buy:not(.shop-panel-buy-now) { order: 1; background: #121212; color: #fff; }
  .shop-panel-actions .shop-panel-buy:not(.shop-panel-buy-now):focus-visible { outline-color: #121212; }
+ /* 버튼 도형 없애기: 외곽선(border)과 채움(background)을 지우고 글자만 남깁니다. 다시 도형을 보이려면 이 줄을 지우세요. */
+ .shop-panel-actions .shop-panel-buy, .shop-panel-actions .shop-panel-buy:not(.shop-panel-buy-now) { border: 0; background: transparent; color: #121212; }
  /* 수량 칸: 제품 설명과 카트에 추가 사이 빈 공간의 세로 가운데(위아래 여백을 똑같이 나눔). 고른 개수만큼 장바구니에 담깁니다. */
  .shop-panel-qty-row { display: block; flex: none; margin: auto 0; padding-bottom: 4px; }   /* 위 여백 = 설명 아래 16px + 남는 공간 절반, 아래 여백 = 4px + 남는 공간 절반 + 버튼 칸 위 12px */
  .shop-panel-qty-row .shop-panel-qty { display: inline-flex; vertical-align: top; }
